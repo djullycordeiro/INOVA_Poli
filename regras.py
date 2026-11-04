@@ -99,3 +99,105 @@ def analisar_cotacao(compra, propostas):
 
     return {"propostas": linhas, "melhor": melhor, "escolhida": escolhida,
             "diferenca": max(diferenca, 0), "veredito": veredito}
+
+
+# ---------------------------------------------------------------------------
+# Nota da Compra
+# ---------------------------------------------------------------------------
+# Quantas vezes um item precisa aparecer no período para o consumo ser "previsível"
+COMPRAS_PARA_PREVISIVEL = 6
+
+CORES_NOTA = {
+    "v": {"rotulo": "Boa decisão", "plural": "verdes", "resumo": "boa decisão"},
+    "a": {"rotulo": "Atenção", "plural": "amarelas", "resumo": "atenção"},
+    "r": {"rotulo": "Decisão ruim", "plural": "vermelhas", "resumo": "decisão ruim"},
+}
+
+
+def cor_da_nota(nota):
+    """Verde a partir de 75, amarela de 50 a 74, vermelha abaixo de 50."""
+    if nota >= 75:
+        return "v"
+    return "a" if nota >= 50 else "r"
+
+
+def variacao_preco(compra):
+    """Quanto o preço pago ficou acima (+) ou abaixo (−) do preço médio planejado. None se não há referência."""
+    ref = compra["preco_medio_planejado_item"]
+    if not ref:
+        return None
+    return compra["preco_unit_final"] / ref - 1
+
+
+def nota_da_compra(compra, analise, vezes_que_o_item_foi_comprado):
+    """Calcula a nota (0 a 100) e devolve os motivos, cada um com sua cor:
+    'g' = ponto positivo, 'a' = atenção, 'r' = problema."""
+    nota = 100
+    motivos = []
+
+    # 1. Preço comparado com o histórico do item
+    var = variacao_preco(compra)
+    if var is not None:
+        pct = round(abs(var) * 100)
+        if var > 0.10:
+            nota -= 40
+            motivos.append(("r", f"Pagou {pct}% acima do preço médio planejado do item"))
+        elif var >= 0.03:
+            nota -= 15
+            motivos.append(("a", f"Pagou {pct}% acima do preço médio planejado do item"))
+        elif var <= -0.03:
+            motivos.append(("g", f"Pagou {pct}% abaixo do preço médio planejado"))
+        else:
+            motivos.append(("g", "Preço dentro do histórico do item"))
+
+    # 2. Ignorou a proposta com melhor custo de hoje
+    if analise["veredito"] in ("cara", "pressa"):
+        nota -= 30
+        if analise["veredito"] == "pressa":
+            motivos.append(("r", f"Havia proposta {brl(analise['diferenca'])} mais barata, mas com entrega em "
+                                 f"{prazo_entrega(analise['melhor']['prazo_entrega_dias'])}"))
+        else:
+            motivos.append(("r", f"Havia proposta {brl(analise['diferenca'])} mais barata no custo de hoje (frete + prazo)"))
+
+    # 3. Quantos fornecedores foram cotados
+    k = int(compra["qtd_cotacoes"])
+    if k == 1:
+        nota -= 20
+        motivos.append(("r", "Só 1 fornecedor cotado"))
+    elif k == 2:
+        nota -= 5
+        motivos.append(("a", "Só 2 fornecedores cotados"))
+    else:
+        motivos.append(("g", f"{k} fornecedores cotados"))
+
+    # 4. Emergencial
+    previsivel = vezes_que_o_item_foi_comprado >= COMPRAS_PARA_PREVISIVEL
+    if compra["tipo_compra"] == "Emergencial":
+        nota -= 15
+        motivos.append(("r", "Compra emergencial de item com consumo previsível" if previsivel else "Compra emergencial"))
+
+    # 5. Orçamento
+    if compra["previsto_no_orcamento"] == "Não":
+        nota -= 5
+        motivos.append(("a", "Fora do orçamento"))
+
+    # Ponto positivo: negociação
+    if compra["saving_negociacao"]:
+        motivos.append(("g", f"Negociação economizou {brl(compra['saving_negociacao'])}"))
+
+    nota = max(nota, 0)
+    return {"nota": nota, "cor": cor_da_nota(nota), "motivos": motivos,
+            "dica": dica_para_proxima(compra, analise, k)}
+
+
+def dica_para_proxima(compra, analise, qtd_cotacoes):
+    """Uma dica fixa, escolhida pelo problema mais importante da compra."""
+    if compra["tipo_compra"] == "Emergencial":
+        return ("Esse item se repete ao longo do ano. Deixe o Radar avisar antes de faltar "
+                "e faça um pedido planejado, com cotação e prazo.")
+    if analise["veredito"] == "cara":
+        return ("Compare as propostas pelo custo de hoje (preço + frete + prazo de pagamento), "
+                "não só pelo preço unitário.")
+    if qtd_cotacoes < 3:
+        return "Cote com pelo menos 3 fornecedores: mais concorrência dá mais poder de negociação."
+    return "Continue assim: cotar com 3 ou mais fornecedores e comparar pelo custo de hoje."

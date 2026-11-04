@@ -199,6 +199,57 @@ def cotacoes():
                            filtros=FILTROS_COTACAO, contagem=contagem, lida=request.args.get("lida") == "1",
                            r=regras)
 
+
+# ---------------------------------------------------------------------------
+# 3.2 Nota da Compra
+# ---------------------------------------------------------------------------
+FILTROS_NOTA = [("todas", "Todas"), ("r", "Vermelhas"), ("a", "Amarelas"), ("v", "Verdes")]
+
+
+def compras_com_nota(usuario):
+    """Busca as compras da área do usuário e calcula a nota de cada uma.
+    Usado pela tela de Nota e, depois, pelo Radar."""
+    onde, params = filtro_area(usuario)
+    with banco.conectar() as c:
+        compras = c.execute(f"SELECT * FROM compras WHERE {onde} ORDER BY data_pedido DESC", params).fetchall()
+        propostas = c.execute(
+            f"SELECT * FROM cotacoes WHERE id_compra IN (SELECT id_compra FROM compras WHERE {onde})", params).fetchall()
+        # "Consumo previsível" olha a empresa toda, não só a área
+        vezes = dict(c.execute("SELECT codigo_item, COUNT(*) FROM compras GROUP BY codigo_item").fetchall())
+    por_pedido = {}
+    for p in propostas:
+        por_pedido.setdefault(p["id_compra"], []).append(p)
+    resultado = []
+    for compra in compras:
+        analise = regras.analisar_cotacao(compra, por_pedido.get(compra["id_compra"], []))
+        nota = regras.nota_da_compra(compra, analise, vezes.get(compra["codigo_item"], 0))
+        resultado.append({"compra": compra, "analise": analise, **nota})
+    return resultado
+
+
+@app.route("/nota")
+@login_obrigatorio
+def nota():
+    todas = compras_com_nota(usuario_atual())
+    filtro = request.args.get("filtro", "todas")
+    visiveis = todas if filtro == "todas" else [x for x in todas if x["cor"] == filtro]
+
+    total = len(todas) or 1
+    resumo = []
+    for cor in ("v", "a", "r"):
+        n = sum(x["cor"] == cor for x in todas)
+        pct = f"{n / total * 100:.1f}".replace(".", ",").replace(",0", "")
+        resumo.append({"cor": cor, "n": n, "pct": pct, **regras.CORES_NOTA[cor]})
+    contagem = {"todas": len(todas), **{r["cor"]: r["n"] for r in resumo}}
+
+    sel_id = request.args.get("sel")
+    sel = next((x for x in todas if x["compra"]["id_compra"] == sel_id), None)
+    if sel is None:
+        # Sem compra escolhida: abre na vermelha mais recente da lista (a lista já vem da mais nova para a mais antiga)
+        sel = next((x for x in visiveis if x["cor"] == "r"), visiveis[0] if visiveis else None)
+    return render_template("nota.html", lista=visiveis, sel=sel, resumo=resumo, filtro=filtro,
+                           filtros=FILTROS_NOTA, contagem=contagem, cores=regras.CORES_NOTA, r=regras)
+
 # ---------------------------------------------------------------------------
 # As 6 telas (passo 3 vai preencher cada uma)
 # ---------------------------------------------------------------------------

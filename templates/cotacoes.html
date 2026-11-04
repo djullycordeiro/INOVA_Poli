@@ -96,7 +96,7 @@
         <div class="veredito-titulo">Só 1 proposta: não houve com o que comparar</div>
         <div class="veredito-texto">Sem concorrência não dá para saber se o preço foi bom. Cotar pelo menos 3 fornecedores é a regra para a próxima compra.</div>
       {% endif %}
-      <a class="botao-escuro" href="{{ url_for('tela', nome='nota') }}?sel={{ cp.id_compra }}">Ver a nota desta compra →</a>
+      <a class="botao-escuro" href="{{ url_for('nota', sel=cp.id_compra) }}">Ver a nota desta compra →</a>
     </div>
 
     <div class="nota-rodape">Custo de hoje = (preço × quantidade + frete) trazido a valor presente com custo do dinheiro de 1% ao mês. Pagar em 60 dias deixa o dinheiro rendendo no caixa, então a mesma conta pode sair mais barata.</div>
@@ -104,5 +104,5 @@
   {% endif %}
 </div>
 
-<div class="rodape-tela"><a class="botao-proximo" href="{{ url_for('tela', nome='nota') }}">Próximo: Nota da Compra →</a></div>
+<div class="rodape-tela"><a class="botao-proximo" href="{{ url_for('nota') }}">Próximo: Nota da Compra →</a></div>
 {% endblock %}
