@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block titulo %}Nota da Compra{% endblock %}
+{% block conteudo %}
+<header class="cabecalho">
+  <div class="titulo-tela">
+    <div class="passo">Passo 2 de 6</div>
+    <h1>Nota da Compra</h1>
+    <p class="descricao" style="max-width:680px">Essa compra foi uma boa decisão econômica? Cada pedido ganha uma nota verde, amarela ou vermelha, com os motivos.</p>
+  </div>
+  <div class="pilulas">
+    <span class="pilula">{{ 'Natto Alimentos · Suprimentos' if usuario.perfil == 'gerente' else usuario.area }}</span>
+    <span class="pilula">{{ contagem.todas }} compras no período</span>
+  </div>
+</header>
+
+<section class="resumo-notas" aria-label="Resumo das notas">
+  {% for c in resumo %}
+  {# Clicar no cartão filtra pela cor; clicar de novo no cartão ativo volta para "Todas" #}
+  <a class="resumo-nota {{ 'ativo' if filtro == c.cor }}" href="{{ url_for('nota', filtro='todas' if filtro == c.cor else c.cor) }}"
+     aria-pressed="{{ 'true' if filtro == c.cor else 'false' }}" title="{{ 'Mostrar todas' if filtro == c.cor else 'Mostrar só as ' ~ c.plural }}">
+    <span class="bola bola-{{ c.cor }}" style="width:18px;height:18px"></span>
+    <div><span class="numero">{{ c.n }}</span><span class="legenda">{{ c.plural }} · {{ c.resumo }} ({{ c.pct }}%)</span></div></a>
+  {% endfor %}
+</section>
+
+<div class="duas-colunas">
+  <section class="lista-notas" aria-label="Lista de compras">
+    <form class="filtro-select" method="get" action="{{ url_for('nota') }}">
+      <label for="filtro">Mostrar</label>
+      <select id="filtro" name="filtro" onchange="this.form.submit()">
+        {% for chave, rotulo in filtros %}<option value="{{ chave }}" {{ 'selected' if chave == filtro }}>{{ rotulo }} ({{ contagem[chave] }})</option>{% endfor %}
+      </select>
+      <noscript><button class="botao">Filtrar</button></noscript>
+    </form>
+    <div class="ajuda">Clique em uma compra para ver a nota.</div>
+    <div class="linhas-nota">
+      {% for x in lista %}{% set cp = x.compra %}
+      <a class="linha-nota {{ 'ativo' if sel and cp.id_compra == sel.compra.id_compra }}" href="{{ url_for('nota', filtro=filtro, sel=cp.id_compra) }}">
+        <span class="bola bola-{{ x.cor }}" style="width:14px;height:14px"></span>
+        <span class="meio"><span class="item">{{ cp.item }}</span><span class="sub">{{ cp.id_compra }} · {{ r.data_br(cp.data_pedido) }} · {{ cp.tipo_compra }}</span></span>
+        <span class="dir"><span class="pontos">{{ x.nota }}</span><span class="sub">{{ r.brl(cp.custo_total) }}</span></span>
+      </a>
+      {% else %}<div class="ajuda">Nenhuma compra neste filtro.</div>{% endfor %}
+    </div>
+  </section>
+
+  {% if sel %}{% set cp = sel.compra %}{% set var = r.variacao_preco(cp) %}
+  <section class="detalhe-nota" aria-label="Detalhe da nota">
+    <div style="display:flex;flex-wrap:wrap;gap:22px;align-items:center">
+      <div class="semaforo" aria-hidden="true">
+        {% for luz in ('r', 'a', 'v') %}<span class="luz-{{ luz }} {{ 'acesa' if sel.cor == luz }}"></span>{% endfor %}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;flex:1;min-width:220px">
+        <div class="painel-meta">{{ cp.id_compra }} · {{ cp.area_solicitante }} · {{ r.data_br(cp.data_pedido) }}</div>
+        <h2 style="margin:0;font-size:24px;font-weight:800">{{ cp.item }}</h2>
+        <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:12px">
+          <span class="selo-nota selo-{{ sel.cor }}">{{ cores[sel.cor].rotulo }}</span>
+          <span style="font-size:15px;color:#4F6153">nota <strong style="font-size:22px;color:#15281B">{{ sel.nota }}</strong> de 100</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="fatos">
+      <div class="fato"><div class="rot">Preço pago (unidade)</div><div class="val">{{ r.brl(cp.preco_unit_final) }}</div></div>
+      <div class="fato"><div class="rot">Preço médio planejado</div><div class="val">{{ r.brl(cp.preco_medio_planejado_item) }}
+        {% if var is not none %}<span class="{{ 'subiu' if var > 0 else 'desceu' }}">{{ '%+d' % (var * 100)|round|int }}%</span>{% endif %}</div></div>
+      <div class="fato"><div class="rot">Custo total</div><div class="val">{{ r.brl(cp.custo_total) }}</div></div>
+      <div class="fato"><div class="rot">Fornecedor</div><div class="val menor">{{ cp.fornecedor }}</div></div>
+      <div class="fato"><div class="rot">Quantidade</div><div class="val menor">{{ r.quantidade(cp.quantidade, cp.unidade) }}</div></div>
+      <div class="fato"><div class="rot">Cotações · pagamento</div><div class="val menor">{{ cp.qtd_cotacoes|int }} cotaç{{ 'ão' if cp.qtd_cotacoes == 1 else 'ões' }} · {{ r.prazo_pagamento(cp.prazo_pagamento_dias) }}</div></div>
+    </div>
+
+    <div class="motivos">
+      <h3>Por que essa nota</h3>
+      {% for tipo, texto in sel.motivos %}
+      <div class="motivo"><span class="bola bola-motivo-{{ tipo }}" style="width:12px;height:12px"></span><span>{{ texto }}</span></div>
+      {% endfor %}
+    </div>
+
+    <div class="dica">
+      <div class="rot">Para a próxima compra</div>
+      <div class="txt">{{ sel.dica }}</div>
+      <a class="botao-branco" href="{{ url_for('tela', nome='historico') }}?item={{ cp.codigo_item }}">Ver o histórico de preço deste item →</a>
+    </div>
+
+    <div class="como-calcula">Como a nota é calculada: começa em 100. Preço mais de 10% acima do histórico −40 (de 3% a 10%: −15) · proposta mais barata ignorada −30 · só 1 cotação −20 (2 cotações: −5) · compra emergencial −15 · fora do orçamento −5. Verde a partir de 75, amarela de 50 a 74, vermelha abaixo de 50.</div>
+  </section>
+  {% endif %}
+</div>
+
+<div class="rodape-tela entre">
+  <a class="botao-voltar" href="{{ url_for('cotacoes') }}">← Cotações</a>
+  <a class="botao-proximo" href="{{ url_for('tela', nome='historico') }}">Próximo: Histórico de preços →</a>
+</div>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block titulo %}Cotações{% endblock %}
+{% block conteudo %}
+<header class="cabecalho">
+  <div class="titulo-tela">
+    <div class="passo">Passo 1 de 6</div>
+    <h1>Cotações</h1>
+    <p class="descricao">Compare as propostas pelo custo de hoje: preço, frete e prazo de pagamento na mesma conta.</p>
+  </div>
+  <div class="pilulas">
+    <span class="pilula">{{ 'Natto Alimentos · Suprimentos' if usuario.perfil == 'gerente' else usuario.area }}</span>
+    <span class="pilula">out/2025 a set/2026</span>
+  </div>
+</header>
+
+<section class="anexar" aria-label="Anexar cotação">
+  <div style="display:flex;flex-direction:column;gap:4px;max-width:720px">
+    <div class="anexar-titulo">Recebeu uma cotação por PDF, e-mail ou WhatsApp?</div>
+    <div class="anexar-texto">Anexe o arquivo ou o print. A IA lê e preenche fornecedor, preço, frete e prazos sozinha.</div>
+    {% if lida %}<div class="anexar-ok">IA leu a cotação: 5 campos preenchidos automaticamente (simulação).</div>{% endif %}
+  </div>
+  <a class="botao" style="text-decoration:none;display:inline-flex;align-items:center;box-sizing:border-box"
+     href="{{ url_for('cotacoes', filtro=filtro, sel=sel.compra.id_compra if sel else None, lida=1) }}">Anexar cotação</a>
+</section>
+
+<div class="duas-colunas">
+  <section class="coluna-pedidos" aria-label="Pedidos em cotação">
+    <h2 class="rotulo-secao">Pedidos</h2>
+    <form class="filtro-select" method="get" action="{{ url_for('cotacoes') }}">
+      <label for="filtro">Mostrar</label>
+      <select id="filtro" name="filtro" onchange="this.form.submit()">
+        {% for chave, rotulo in filtros %}
+        <option value="{{ chave }}" {{ 'selected' if chave == filtro }}>{{ rotulo }} ({{ contagem[chave] }})</option>
+        {% endfor %}
+      </select>
+      <noscript><button class="botao">Filtrar</button></noscript>
+    </form>
+    <div class="lista-pedidos">
+      {% for p in pedidos %}{% set cp = p.compra %}
+      <a class="pedido {{ 'ativo' if sel and cp.id_compra == sel.compra.id_compra }}" href="{{ url_for('cotacoes', filtro=filtro, sel=cp.id_compra) }}">
+        <span class="pedido-topo"><span>{{ cp.id_compra }} · {{ r.data_br(cp.data_pedido) }}</span><span class="tipo tipo-{{ cp.tipo_compra }}">{{ cp.tipo_compra }}</span></span>
+        <span class="pedido-item">{{ cp.item }}</span>
+        <span class="pedido-info">{{ cp.area_solicitante }} · {{ p.analise.propostas|length }} proposta{{ 's' if p.analise.propostas|length != 1 }}</span>
+      </a>
+      {% else %}
+      <div class="vazio">Nenhum pedido neste filtro.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if sel %}{% set cp = sel.compra %}{% set a = sel.analise %}
+  <section class="painel" aria-label="Propostas do pedido selecionado">
+    <div class="painel-topo">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div class="painel-meta">{{ cp.id_compra }} · {{ cp.area_solicitante }} · pedido em {{ r.data_br(cp.data_pedido) }}</div>
+        <h2>{{ cp.item }}</h2>
+        <div class="painel-qtd">Quantidade: {{ r.quantidade(cp.quantidade, cp.unidade) }}</div>
+      </div>
+      <span class="tipo tipo-{{ cp.tipo_compra }}">{{ cp.tipo_compra }}</span>
+    </div>
+
+    <div class="propostas">
+      <table aria-label="Propostas">
+        <thead><tr><th>Fornecedor</th><th class="num">Preço unit.</th><th class="num">Frete</th><th>Pagamento</th><th>Entrega</th><th class="num">Custo total</th><th class="num">Custo de hoje</th></tr></thead>
+        <tbody>
+        {% for q in a.propostas %}
+          <tr class="{{ 'melhor' if q.melhor and a.propostas|length > 1 else ('escolhida' if q.escolhida else '') }}">
+            <td><span class="fornecedor">{{ q.fornecedor }}</span>
+              <span class="etiquetas">
+                {% if q.melhor and a.propostas|length > 1 %}<span class="etiqueta etiqueta-melhor">Melhor custo de hoje</span>{% endif %}
+                {% if q.escolhida %}<span class="etiqueta etiqueta-escolhida">Escolhida pelo comprador</span>{% endif %}
+              </span></td>
+            <td class="num">{{ r.brl(q.preco_unit) }}</td>
+            <td class="num">{{ 'grátis' if not q.frete else r.brl(q.frete) }}</td>
+            <td>{{ r.prazo_pagamento(q.prazo_pagamento_dias) }}</td>
+            <td>{{ r.prazo_entrega(q.prazo_entrega_dias) }}</td>
+            <td class="num">{{ r.brl(q.custo_total) }}</td>
+            <td class="num" style="font-weight:700">{{ r.brl(q.custo_hoje) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="veredito veredito-{{ a.veredito }}">
+      {% if a.veredito == 'certa' %}
+        <div class="veredito-titulo">Escolha certa: a proposta escolhida tem o melhor custo de hoje</div>
+        <div class="veredito-texto">Comparando preço, frete e prazo de pagamento entre {{ a.propostas|length }} propostas, a escolhida foi a mais econômica.</div>
+      {% elif a.veredito == 'pressa' %}
+        <div class="veredito-titulo">A pressa custou {{ r.brl(a.diferenca) }}</div>
+        <div class="veredito-texto">Existia uma proposta mais barata ({{ a.melhor.fornecedor }}), mas ela entregava em {{ r.prazo_entrega(a.melhor.prazo_entrega_dias) }}. Como a compra foi feita às pressas, a empresa pagou a diferença. Com planejamento, dava para esperar.</div>
+      {% elif a.veredito == 'cara' %}
+        <div class="veredito-titulo">A proposta escolhida custou {{ r.brl(a.diferenca) }} a mais</div>
+        <div class="veredito-texto">Olhando só o preço unitário ela parecia a melhor. Somando frete e prazo de pagamento, a proposta da {{ a.melhor.fornecedor }} saía mais barata.</div>
+      {% else %}
+        <div class="veredito-titulo">Só 1 proposta: não houve com o que comparar</div>
+        <div class="veredito-texto">Sem concorrência não dá para saber se o preço foi bom. Cotar pelo menos 3 fornecedores é a regra para a próxima compra.</div>
+      {% endif %}
+      <a class="botao-escuro" href="{{ url_for('nota', sel=cp.id_compra) }}">Ver a nota desta compra →</a>
+    </div>
+
+    <div class="nota-rodape">Custo de hoje = (preço × quantidade + frete) trazido a valor presente com custo do dinheiro de 1% ao mês. Pagar em 60 dias deixa o dinheiro rendendo no caixa, então a mesma conta pode sair mais barata.</div>
+  </section>
+  {% endif %}
+</div>
+
+<div class="rodape-tela"><a class="botao-proximo" href="{{ url_for('nota') }}">Próximo: Nota da Compra →</a></div>
+{% endblock %}
