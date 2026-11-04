@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block titulo %}Convites{% endblock %}
+{% block conteudo %}
+<header class="cabecalho"><div style="display:flex;flex-direction:column;gap:6px">
+  <div class="passo">Área do gerente</div>
+  <h1>Convites</h1>
+  <p class="descricao">Gere um código para cada novo colaborador. Ele vale uma única vez e expira em {{ validade }} dias. A área do analista é definida aqui.</p>
+</div></header>
+
+<section class="cartao">
+  <form method="post" style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="acao" value="gerar">
+    <label class="campo" style="flex:1 1 160px">Perfil
+      <select name="perfil" id="perfil" onchange="document.getElementById('campo-area').style.display = this.value === 'analista' ? '' : 'none'">
+        <option value="analista">Analista de compras</option><option value="gerente">Gerente (vê todas as áreas)</option>
+      </select></label>
+    <label class="campo" id="campo-area" style="flex:2 1 240px">Área do analista
+      <select name="area">{% for a in areas %}<option>{{ a }}</option>{% endfor %}</select></label>
+    <button class="botao botao-amarelo">Gerar código</button>
+  </form>
+</section>
+
+<section class="cartao rolagem">
+  <table class="tabela">
+    <thead><tr><th>Código</th><th>Perfil</th><th>Área</th><th>Situação</th><th>Criado por</th><th>Expira</th><th></th></tr></thead>
+    <tbody>
+    {% for c in convites %}
+      <tr>
+        <td class="codigo">{{ c.codigo }}</td>
+        <td>{{ c.perfil|capitalize }}</td>
+        <td>{{ c.area or 'Todas' }}</td>
+        <td><span class="situacao situacao-{{ c.situacao }}">{{ c.situacao }}{% if c.usado_nome %} · {{ c.usado_nome }}{% endif %}</span></td>
+        <td>{{ c.criador_nome }}</td>
+        <td>{{ c.expira_em[:10] }}</td>
+        <td>{% if c.situacao == 'Pendente' %}
+          <form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="acao" value="cancelar"><input type="hidden" name="codigo" value="{{ c.codigo }}"><button class="link-sair" style="color:#A51D17;border-color:#F3B7B2">Cancelar</button></form>
+        {% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" style="color:#4F6153">Nenhum convite gerado ainda.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
