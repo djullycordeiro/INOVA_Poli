@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JustPlan · {% block titulo %}Painel de Compras{% endblock %}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Libre+Baskerville:wght@400;700&display=swap">
+<link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
+</head>
+<body>
+{% block corpo %}
+<div class="layout">
+  <nav class="lateral" aria-label="Menu principal">
+    <div class="marca">
+      <a class="logo" href="{{ url_for('inicio') }}"><img src="{{ url_for('static', filename='logo.svg') }}" alt=""><span><b>Just</b><span>Plan</span></span></a>
+      <div class="subtitulo">Painel de Compras inteligente</div>
+      <div class="selo">Cliente: Natto Alimentos</div>
+    </div>
+    <div class="menu">
+      {% for endereco, rotulo in telas %}
+      <a href="{{ url_for('tela', nome=endereco) }}" {% if request.view_args.get('nome') == endereco %}aria-current="page"{% endif %}>
+        <span class="num">{{ loop.index }}</span><span class="rotulo">{{ rotulo }}</span>
+        {% if endereco == 'radar' %}<span class="badge">3</span>{% endif %}
+      </a>
+      {% endfor %}
+      {% if usuario.perfil == 'gerente' %}
+      <a href="{{ url_for('convites') }}" {% if request.endpoint == 'convites' %}aria-current="page"{% endif %}>
+        <span class="num">✉</span><span class="rotulo">Convites</span>
+      </a>
+      {% endif %}
+    </div>
+    <div class="usuario">
+      <div><strong>{{ usuario.nome }}</strong><br>{{ 'Gerente · todas as áreas' if usuario.perfil == 'gerente' else 'Analista · ' ~ usuario.area }}</div>
+      <form method="post" action="{{ url_for('sair') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link-sair">Sair</button></form>
+      <div>Protótipo INOVA POLI 2026<br>Dados fictícios · out/2025 a set/2026</div>
+    </div>
+  </nav>
+  <main class="principal">
+    {% for m in get_flashed_messages() %}<div class="aviso">{{ m }}</div>{% endfor %}
+    {% block conteudo %}{% endblock %}
+  </main>
+</div>
+{% endblock %}
+</body>
+</html>
