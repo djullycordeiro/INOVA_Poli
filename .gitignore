@@ -1,0 +1,28 @@
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Configurações do editor
+.vscode/
+.idea/
+
+# Senhas, chaves da IA e do banco de dados (NUNCA subir)
+.env
+.env.*
+!.env.example
+
+# Banco de dados local
+*.db
+*.sqlite
+*.sqlite3
+
+# Orçamentos e arquivos enviados pelos usuários
+uploads/
+
+# Dependências instaladas
+node_modules/
+venv/
+__pycache__/
+
+# Logs (podem conter dados de usuários)
+*.log
