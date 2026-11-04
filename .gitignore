@@ -9,6 +9,7 @@ Thumbs.db
 # Senhas, chaves da IA e do banco de dados (NUNCA subir)
 .env
 .env.*
+.chave_secreta
 !.env.example
 
 # Banco de dados local
