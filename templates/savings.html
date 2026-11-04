@@ -53,7 +53,7 @@
     {% if s.texto_pior %}<div class="txt">{{ s.texto_pior }}</div>{% endif %}
     {% if s.texto_cat %}<div class="txt">{{ s.texto_cat }}</div>{% endif %}
     {% if not s.perda %}<div class="txt">Nenhuma compra emergencial no período. Continue planejando.</div>{% endif %}
-    <a class="botao-vermelho" href="{{ url_for('tela', nome='radar') }}">Ver no Radar de Emergenciais →</a>
+    <a class="botao-vermelho" href="{{ url_for('radar') }}">Ver no Radar de Emergenciais →</a>
   </section>
 </div>
 
@@ -73,6 +73,6 @@
 
 <div class="rodape-tela entre">
   <a class="botao-voltar" href="{{ url_for('historico') }}">← Histórico de preços</a>
-  <a class="botao-proximo" href="{{ url_for('tela', nome='radar') }}">Próximo: Radar de Emergenciais →</a>
+  <a class="botao-proximo" href="{{ url_for('radar') }}">Próximo: Radar de Emergenciais →</a>
 </div>
 {% endblock %}

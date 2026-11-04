@@ -55,6 +55,18 @@ CREATE TABLE IF NOT EXISTS convites (
     cancelado   INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS requisicoes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    chave       TEXT NOT NULL,            -- qual cartão do Radar gerou (ex.: planejada:EPI-001)
+    tipo        TEXT NOT NULL CHECK (tipo IN ('planejada', 'estoque_minimo')),
+    titulo      TEXT NOT NULL,
+    itens       TEXT NOT NULL,            -- códigos dos itens, separados por vírgula
+    area        TEXT NOT NULL,
+    data_limite TEXT,                     -- até quando o pedido precisa sair
+    criado_por  INTEGER NOT NULL REFERENCES usuarios(id),
+    criado_em   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS compras (
     id_compra TEXT PRIMARY KEY, data_pedido TEXT, area_solicitante TEXT, categoria TEXT,
     codigo_item TEXT, item TEXT, unidade TEXT, quantidade REAL, fornecedor TEXT, comprador TEXT,
@@ -96,6 +108,12 @@ def _importar_csv(conexao, arquivo, tabela):
     sql = f"INSERT INTO {tabela} ({', '.join(colunas)}) VALUES ({', '.join('?' * len(colunas))})"
     conexao.executemany(sql, [[_converter(c, l[c]) for c in colunas] for l in linhas])
     return len(linhas)
+
+
+def garantir_tabelas():
+    """Cria as tabelas que faltarem (não apaga nada). Chamado quando o site liga."""
+    with conectar() as conexao:
+        conexao.executescript(ESTRUTURA)
 
 
 def iniciar():

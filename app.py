@@ -7,7 +7,7 @@ Para rodar:
 
 from datetime import datetime, timedelta, timezone
 
-from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
+from flask import Flask, abort, flash, g, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import banco
@@ -18,6 +18,7 @@ from seguranca import (configurar, filtro_area, limpar_erros_login, login_bloque
 
 app = Flask(__name__)
 configurar(app)
+banco.garantir_tabelas()
 
 VALIDADE_CONVITE_DIAS = 7
 
@@ -32,10 +33,23 @@ TELAS = [
 ]
 
 
+def radar_do_usuario(u):
+    """Calcula o Radar uma vez por página (fica guardado em g durante a requisição)."""
+    if "radar" not in g:
+        onde, params = filtro_area(u)
+        with banco.conectar() as c:
+            compras = c.execute(f"SELECT * FROM compras WHERE {onde}", params).fetchall()
+            todas = c.execute("SELECT * FROM compras").fetchall()
+        g.radar = regras.radar(compras, todas, u["area"] if u["perfil"] == "analista" else None)
+    return g.radar
+
+
 @app.context_processor
 def variaveis_globais():
     """Disponível em todos os templates."""
-    return {"usuario": usuario_atual(), "telas": TELAS, "csrf": session.get("csrf", "")}
+    u = usuario_atual()
+    alertas = len(radar_do_usuario(u)["alertas"]) if u else 0
+    return {"usuario": u, "telas": TELAS, "csrf": session.get("csrf", ""), "n_alertas": alertas}
 
 
 # ---------------------------------------------------------------------------
@@ -302,6 +316,36 @@ def savings():
     # O desconto por cotações usa a empresa toda: numa área só, a amostra é pequena demais
     return render_template("savings.html", s=regras.savings(compras),
                            por_cotacoes=regras.desconto_por_cotacoes(todas), r=regras)
+
+
+# ---------------------------------------------------------------------------
+# 3.5 Radar de Emergenciais
+# ---------------------------------------------------------------------------
+@app.route("/radar", methods=["GET", "POST"])
+@login_obrigatorio
+def radar():
+    u = usuario_atual()
+    dados = radar_do_usuario(u)
+    cartoes = {c["chave"]: c for c in dados["prevencao"]}
+
+    if request.method == "POST":
+        cartao = cartoes.get(request.form.get("chave"))
+        if cartao is None:  # só aceita cartões que o próprio usuário está vendo
+            abort(400)
+        with banco.conectar() as c:
+            ja = c.execute("SELECT 1 FROM requisicoes WHERE chave = ?", (cartao["chave"],)).fetchone()
+            if not ja:
+                c.execute("INSERT INTO requisicoes (chave, tipo, titulo, itens, area, data_limite, criado_por)"
+                          " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                          (cartao["chave"], cartao["tipo"], cartao["titulo"], cartao["itens"], cartao["area"],
+                           cartao["data_limite"], u["id"]))
+                flash("Requisição criada." if cartao["tipo"] == "planejada" else "Estoque mínimo registrado.")
+        return redirect(url_for("radar") + "#antes")
+
+    with banco.conectar() as c:
+        feitas = {r["chave"]: r for r in c.execute(
+            "SELECT r.*, u.nome AS autor FROM requisicoes r JOIN usuarios u ON u.id = r.criado_por").fetchall()}
+    return render_template("radar.html", rd=dados, feitas=feitas, r=regras)
 
 # ---------------------------------------------------------------------------
 # As 6 telas (passo 3 vai preencher cada uma)

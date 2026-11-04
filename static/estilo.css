@@ -266,3 +266,36 @@ form.escolha-item { justify-content: flex-start; max-width: 620px; }
 .por-categoria .num { text-align: right; }
 @media (max-width: 900px) { .cartoes-3 { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .barras { gap: 3px; } .meses-barras { gap: 3px; font-size: 10px; } .barras-mes { gap: 1px; } }
+
+/* ---------- 3.5 Radar de Emergenciais ---------- */
+.subtitulo-serif { margin: 6px 0 0; font-size: 26px; font-weight: 400; color: #fff; font-family: 'Libre Baskerville', serif; }
+.cartao-num.vermelho { background: #D7261E; color: #fff; } .cartao-num.vermelho .sub { color: #FFE3E0; }
+.cartao-num .val-grande { font-size: 30px; font-weight: 800; }
+.alerta { background: #fff; border-radius: 18px; padding: 22px 24px; display: flex; flex-wrap: wrap; gap: 22px; align-items: center; }
+.alerta-texto { flex: 1 1 360px; display: flex; flex-direction: column; gap: 8px; }
+.alerta-grafico { flex: 1 1 380px; display: flex; flex-direction: column; gap: 6px; }
+.etiqueta-tipo { align-self: flex-start; background: #FFF3D6; color: #5C4100; font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.06em; }
+.alerta-titulo { font-size: 20px; font-weight: 800; line-height: 1.3; }
+.alerta-desc { font-size: 15px; color: var(--texto-suave); line-height: 1.5; }
+.grade-12 { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; }
+.mes-celula { display: flex; align-items: center; justify-content: center; height: 40px; border-radius: 8px; font-size: 14px; font-weight: 800; color: #6E120E; background: #EEF3E8; }
+.mes-celula.n1 { background: #F7B9B2; } .mes-celula.n2 { background: #E0564C; color: #fff; }
+.meses-peq { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; font-size: 11px; color: var(--texto-suave); text-align: center; }
+.legenda-peq { font-size: 12px; color: var(--texto-suave); }
+.barra-area { display: grid; grid-template-columns: 150px minmax(0, 1fr) 52px; gap: 10px; align-items: center; font-size: 13px; }
+.barra-area .trilho { position: relative; height: 14px; background: #EEF3E8; border-radius: 999px; overflow: hidden; }
+.barra-area .enchimento { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: #8DBF93; }
+.barra-area .enchimento.alta { background: #D7261E; }
+.barra-area .valor { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.linha-tempo { position: relative; height: 40px; border-bottom: 2px solid #CFDCC5; }
+.linha-tempo .ponto { top: 50%; }
+.cartoes-prev { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.cartao-prev { background: #004A21; color: #fff; border-radius: 18px; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.cartao-prev .tag { align-self: flex-start; background: var(--amarelo); color: #3A2E00; font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; }
+.cartao-prev .tit { font-size: 18px; font-weight: 800; line-height: 1.3; }
+.cartao-prev .txt { font-size: 14px; color: #E6F2E8; line-height: 1.5; flex: 1; }
+.cartao-prev .feito { background: #fff; color: #134D22; border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 700; }
+.cartao-prev button { width: 100%; background: #fff; color: var(--verde-escuro); border: none; border-radius: 999px; padding: 12px 16px; font-size: 14px; font-weight: 800; min-height: 44px; cursor: pointer; }
+.cartao-prev button:hover { background: var(--amarelo); color: #3A2E00; }
+.sem-alertas { background: #E3F3E0; border: 2px solid #1E8E3E; color: #134D22; border-radius: 16px; padding: 18px 20px; font-size: 15px; line-height: 1.5; }
+@media (max-width: 640px) { .barra-area { grid-template-columns: 100px minmax(0, 1fr) 46px; } }
