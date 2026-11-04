@@ -18,7 +18,7 @@
     </div>
     <div class="menu">
       {% for endereco, rotulo in telas %}
-      <a href="{{ url_for('tela', nome=endereco) }}" {% if request.path == '/' ~ endereco %}aria-current="page"{% endif %}>
+      <a href="{{ url_for(endereco) }}" {% if request.endpoint == endereco %}aria-current="page"{% endif %}>
         <span class="num">{{ loop.index }}</span><span class="rotulo">{{ rotulo }}</span>
         {% if endereco == 'radar' and n_alertas %}<span class="badge" title="{{ n_alertas }} alertas ativos">{{ n_alertas }}</span>{% endif %}
       </a>

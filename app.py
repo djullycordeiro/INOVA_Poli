@@ -70,7 +70,7 @@ def login():
             session["usuario_id"] = u["id"]
             session.permanent = True
             limpar_erros_login(email)
-            return redirect(url_for("tela", nome="cotacoes"))
+            return redirect(url_for("cotacoes"))
         registrar_erro_login(email)
         # Mesma mensagem para e-mail inexistente e senha errada: não revela quem tem conta.
         flash("E-mail ou senha incorretos.")
@@ -347,26 +347,24 @@ def radar():
             "SELECT r.*, u.nome AS autor FROM requisicoes r JOIN usuarios u ON u.id = r.criado_por").fetchall()}
     return render_template("radar.html", rd=dados, feitas=feitas, r=regras)
 
+
 # ---------------------------------------------------------------------------
-# As 6 telas (passo 3 vai preencher cada uma)
+# 3.6 Planos
 # ---------------------------------------------------------------------------
+@app.route("/planos")
+@login_obrigatorio
+def planos():
+    def opcao(nome, opcoes, padrao):
+        valor = request.args.get(nome, type=int)
+        return valor if valor in opcoes else padrao
+    gasto = opcao("gasto", regras.OPCOES_GASTO, 10)
+    eco = opcao("eco", regras.OPCOES_ECONOMIA, 2)
+    return render_template("planos.html", gasto=gasto, eco=eco, sim=regras.simular_plano(gasto, eco), r=regras)
+
+
 @app.route("/")
 def inicio():
-    return redirect(url_for("tela", nome="cotacoes"))
-
-
-@app.route("/<nome>")
-@login_obrigatorio
-def tela(nome):
-    titulos = dict(TELAS)
-    if nome not in titulos:
-        abort(404)
-    u = usuario_atual()
-    onde, params = filtro_area(u)
-    with banco.conectar() as c:
-        total = c.execute(f"SELECT COUNT(*) FROM compras WHERE {onde}", params).fetchone()[0]
-    passo = [t[0] for t in TELAS].index(nome) + 1
-    return render_template("em_construcao.html", nome=nome, titulo=titulos[nome], passo=passo, total=total)
+    return redirect(url_for("cotacoes"))
 
 
 if __name__ == "__main__":

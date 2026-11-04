@@ -600,3 +600,28 @@ def _prevencao(compras, todas, previsivel, item_alerta, area_usuario):
             "data_limite": None, "acao": "Definir estoque mínimo",
         })
     return cartoes
+
+
+# ---------------------------------------------------------------------------
+# Planos (preço da JustPlan)
+# ---------------------------------------------------------------------------
+MENSALIDADE = 1490          # R$ por mês
+TAXA_SUCESSO = 0.10         # 10% da economia comprovada
+OPCOES_GASTO = [5, 10, 20, 50]      # gasto anual com compras, em R$ milhões
+OPCOES_ECONOMIA = [1, 2, 3, 5]      # economia gerada, em %
+
+
+def simular_plano(gasto_milhoes, economia_pct):
+    """Quanto a JustPlan recebe e quanto a cliente fica, num ano."""
+    economia = gasto_milhoes * 1_000_000 * economia_pct / 100
+    mensalidades = MENSALIDADE * 12
+    justplan = mensalidades + economia * TAXA_SUCESSO
+    return {
+        "economia": economia, "mensalidades": mensalidades, "justplan": justplan,
+        "cliente": economia - justplan, "retorno": economia / justplan,
+    }
+
+
+def reais(valor):
+    """Valor arredondado, sem centavos: 37880 -> 'R$ 37.880'"""
+    return brl(round(valor))[:-3]
