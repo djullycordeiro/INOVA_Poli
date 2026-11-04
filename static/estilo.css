@@ -327,3 +327,36 @@ form.escolha-item { justify-content: flex-start; max-width: 620px; }
 .passo-cobranca .n { font-size: 28px; font-weight: 800; color: var(--amarelo); } .passo-cobranca .t { font-size: 16px; font-weight: 700; }
 .passo-cobranca .d { font-size: 14px; color: var(--texto-claro); line-height: 1.5; }
 @media (max-width: 900px) { .cartoes-2, .passos-cobranca { grid-template-columns: 1fr; } }
+
+/* ---------- 4.2 Requisições ---------- */
+.badge-amarelo { background: var(--amarelo); color: #3A2E00; }
+.form-requisicao { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: end; }
+.form-requisicao .largo { grid-column: span 2; } .form-requisicao .inteiro { grid-column: 1 / -1; }
+.form-requisicao textarea { padding: 12px 14px; border: 2px solid #CFE0C4; border-radius: 12px; font-size: 15px; font-family: inherit; min-height: 70px; resize: vertical; }
+.radio-urgencia { display: flex; gap: 8px; }
+.radio-urgencia label { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; border: 2px solid #CFE0C4; border-radius: 12px; min-height: 44px; font-size: 14px; font-weight: 700; color: var(--verde-escuro); cursor: pointer; }
+.radio-urgencia input { accent-color: var(--verde-botao); }
+.aviso-prazo { background: #FDE7E5; border: 2px solid #D7261E; color: #6E120E; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; font-size: 15px; line-height: 1.5; }
+.aviso-prazo .acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.lista-req { display: flex; flex-direction: column; gap: 12px; }
+.req { background: #fff; border-radius: 16px; padding: 16px 18px; display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; }
+.req-principal { flex: 1 1 320px; display: flex; flex-direction: column; gap: 4px; }
+.req-topo { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; color: var(--texto-suave); font-weight: 600; }
+.req-item { font-size: 17px; font-weight: 800; color: #15281B; }
+.req-info { font-size: 14px; color: var(--texto-suave); }
+.req-just { font-size: 14px; color: var(--texto); font-style: italic; }
+.req-lado { flex: 0 1 360px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.status { font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; }
+.status-aberta { background: #FFF3D6; color: #5C4100; } .status-aprovada { background: #E3F3E0; color: #1C6B33; }
+.status-recusada { background: #FDE7E5; color: #A51D17; } .status-concluida { background: #E1EAF5; color: #1D3F6E; }
+.decisao { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%; }
+.decisao input { flex: 1 1 160px; padding: 8px 12px; border: 2px solid #CFE0C4; border-radius: 10px; font-size: 14px; min-height: 40px; box-sizing: border-box; }
+.botao-peq { border: none; border-radius: 999px; padding: 8px 16px; font-size: 14px; font-weight: 700; min-height: 40px; cursor: pointer; }
+.botao-aprovar { background: var(--verde-botao); color: #fff; } .botao-recusar { background: #fff; color: #A51D17; border: 2px solid #F3B7B2; }
+@media (max-width: 900px) { .form-requisicao { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) { .form-requisicao { grid-template-columns: 1fr; } .form-requisicao .largo { grid-column: auto; } }
+.req-lado { flex: 0 1 440px; }
+.decisao { flex-wrap: nowrap; }
+.decisao .recusa { display: flex; gap: 8px; flex: 1; min-width: 0; }
+.decisao .recusa input { min-width: 0; }
+@media (max-width: 640px) { .decisao { flex-wrap: wrap; } .decisao .botao-aprovar { width: 100%; } }

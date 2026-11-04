@@ -110,10 +110,31 @@ def _importar_csv(conexao, arquivo, tabela):
     return len(linhas)
 
 
+# Colunas acrescentadas depois que a tabela já existia (passo 4.2).
+# Cada uma é criada só se ainda não existir, então nada do que já está no banco se perde.
+COLUNAS_NOVAS = {
+    "requisicoes": {
+        "quantidade": "REAL",
+        "data_necessaria": "TEXT",                    # quando o material precisa chegar
+        "urgencia": "TEXT NOT NULL DEFAULT 'Planejada'",
+        "justificativa": "TEXT",
+        "status": "TEXT NOT NULL DEFAULT 'aberta'",   # aberta, aprovada, recusada, concluida
+        "decidido_por": "INTEGER REFERENCES usuarios(id)",
+        "decidido_em": "TEXT",
+        "motivo_recusa": "TEXT",
+    },
+}
+
+
 def garantir_tabelas():
-    """Cria as tabelas que faltarem (não apaga nada). Chamado quando o site liga."""
+    """Cria as tabelas e colunas que faltarem (não apaga nada). Chamado quando o site liga."""
     with conectar() as conexao:
         conexao.executescript(ESTRUTURA)
+        for tabela, colunas in COLUNAS_NOVAS.items():
+            existentes = {l["name"] for l in conexao.execute(f"PRAGMA table_info({tabela})")}
+            for nome, tipo in colunas.items():
+                if nome not in existentes:
+                    conexao.execute(f"ALTER TABLE {tabela} ADD COLUMN {nome} {tipo}")
 
 
 def iniciar():

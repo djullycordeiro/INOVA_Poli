@@ -23,6 +23,10 @@
         {% if endereco == 'radar' and n_alertas %}<span class="badge" title="{{ n_alertas }} alertas ativos">{{ n_alertas }}</span>{% endif %}
       </a>
       {% endfor %}
+      <a href="{{ url_for('requisicoes') }}" {% if request.endpoint == 'requisicoes' %}aria-current="page"{% endif %}>
+        <span class="num">✓</span><span class="rotulo">Requisições</span>
+        {% if n_abertas %}<span class="badge badge-amarelo" title="{{ n_abertas }} aguardando aprovação">{{ n_abertas }}</span>{% endif %}
+      </a>
       {% if usuario.perfil == 'gerente' %}
       <a href="{{ url_for('convites') }}" {% if request.endpoint == 'convites' %}aria-current="page"{% endif %}>
         <span class="num">✉</span><span class="rotulo">Convites</span>

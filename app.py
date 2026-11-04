@@ -5,7 +5,8 @@ Para rodar:
     python app.py      -> abre em http://localhost:5000
 """
 
-from datetime import datetime, timedelta, timezone
+import secrets
+from datetime import date, datetime, timedelta, timezone
 
 from flask import Flask, abort, flash, g, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -49,7 +50,11 @@ def variaveis_globais():
     """Disponível em todos os templates."""
     u = usuario_atual()
     alertas = len(radar_do_usuario(u)["alertas"]) if u else 0
-    return {"usuario": u, "telas": TELAS, "csrf": session.get("csrf", ""), "n_alertas": alertas}
+    abertas = 0
+    if u and u["perfil"] == "gerente":
+        with banco.conectar() as c:
+            abertas = c.execute("SELECT COUNT(*) FROM requisicoes WHERE status = 'aberta'").fetchone()[0]
+    return {"usuario": u, "telas": TELAS, "csrf": session.get("csrf", ""), "n_alertas": alertas, "n_abertas": abertas}
 
 
 # ---------------------------------------------------------------------------
@@ -339,7 +344,7 @@ def radar():
                           " VALUES (?, ?, ?, ?, ?, ?, ?)",
                           (cartao["chave"], cartao["tipo"], cartao["titulo"], cartao["itens"], cartao["area"],
                            cartao["data_limite"], u["id"]))
-                flash("Requisição criada." if cartao["tipo"] == "planejada" else "Estoque mínimo registrado.")
+                flash("Requisição criada e enviada para aprovação em Requisições." if cartao["tipo"] == "planejada" else "Estoque mínimo registrado em Requisições.")
         return redirect(url_for("radar") + "#antes")
 
     with banco.conectar() as c:
@@ -360,6 +365,98 @@ def planos():
     gasto = opcao("gasto", regras.OPCOES_GASTO, 10)
     eco = opcao("eco", regras.OPCOES_ECONOMIA, 2)
     return render_template("planos.html", gasto=gasto, eco=eco, sim=regras.simular_plano(gasto, eco), r=regras)
+
+
+# ---------------------------------------------------------------------------
+# 4.2 Requisições
+# ---------------------------------------------------------------------------
+STATUS_REQUISICAO = [("todas", "Todas"), ("aberta", "Abertas"), ("aprovada", "Aprovadas"),
+                     ("recusada", "Recusadas"), ("concluida", "Concluídas")]
+
+
+def catalogo_de_itens():
+    """Itens que já existem na base, com o prazo médio de entrega das compras planejadas."""
+    with banco.conectar() as c:
+        return c.execute("""
+            SELECT codigo_item, item, unidade, categoria,
+                   ROUND(AVG(CASE WHEN tipo_compra = 'Planejada' THEN prazo_entrega_dias END)) AS prazo_medio
+            FROM compras GROUP BY codigo_item ORDER BY categoria, item""").fetchall()
+
+
+@app.route("/requisicoes", methods=["GET", "POST"])
+@login_obrigatorio
+def requisicoes():
+    u = usuario_atual()
+    itens = {i["codigo_item"]: i for i in catalogo_de_itens()}
+    hoje = regras.DATA_DE_HOJE
+    form, aviso = {}, None
+
+    if request.method == "POST":
+        form = request.form
+        item = itens.get(form.get("item"))
+        area = form.get("area") if u["perfil"] == "gerente" else u["area"]
+        try:
+            quantidade = float(form.get("quantidade", "").replace(",", "."))
+            data_nec = date.fromisoformat(form.get("data_necessaria", ""))
+        except ValueError:
+            quantidade, data_nec = 0, None
+        urgencia = form.get("urgencia") if form.get("urgencia") in ("Planejada", "Emergencial") else "Planejada"
+
+        if not item or area not in banco.areas():
+            flash("Escolha o item e a área.")
+        elif quantidade <= 0:
+            flash("A quantidade precisa ser maior que zero.")
+        elif data_nec is None or data_nec < hoje:
+            flash(f"A data precisa ser a partir de {regras.data_br(hoje.isoformat())}.")
+        else:
+            dias = (data_nec - hoje).days
+            prazo = int(item["prazo_medio"] or 0)
+            if urgencia == "Planejada" and prazo and dias < prazo and not form.get("confirmado"):
+                # Avisa antes de salvar: com esse prazo, não dá tempo de comprar planejado
+                aviso = {"item": regras.nome_curto(item["item"]), "prazo": prazo, "dias": dias}
+            else:
+                if urgencia == "Planejada" and prazo and dias < prazo:
+                    urgencia = "Emergencial"
+                with banco.conectar() as c:
+                    c.execute("""INSERT INTO requisicoes (chave, tipo, titulo, itens, area, quantidade, data_necessaria,
+                                 urgencia, justificativa, criado_por) VALUES (?, 'planejada', ?, ?, ?, ?, ?, ?, ?, ?)""",
+                              (f"manual:{secrets.token_hex(6)}", item["item"], item["codigo_item"], area, quantidade,
+                               data_nec.isoformat(), urgencia, form.get("justificativa", "").strip(), u["id"]))
+                flash("Requisição criada. Agora ela aguarda a aprovação do gerente." if u["perfil"] != "gerente"
+                      else "Requisição criada.")
+                return redirect(url_for("requisicoes"))
+
+    filtro = request.args.get("status", "todas")
+    onde, params = ("1 = 1", []) if u["perfil"] == "gerente" else ("r.area = ?", [u["area"]])
+    with banco.conectar() as c:
+        lista = c.execute(f"""
+            SELECT r.*, autor.nome AS autor, quem.nome AS decidiu
+            FROM requisicoes r JOIN usuarios autor ON autor.id = r.criado_por
+            LEFT JOIN usuarios quem ON quem.id = r.decidido_por
+            WHERE {onde} ORDER BY r.status != 'aberta', r.criado_em DESC""", params).fetchall()
+    contagem = {k: (len(lista) if k == "todas" else sum(x["status"] == k for x in lista)) for k, _ in STATUS_REQUISICAO}
+    visiveis = lista if filtro == "todas" else [x for x in lista if x["status"] == filtro]
+    return render_template("requisicoes.html", lista=visiveis, filtro=filtro, filtros=STATUS_REQUISICAO,
+                           contagem=contagem, itens=itens.values(), unidades={k: i["unidade"] for k, i in itens.items()},
+                           areas=banco.areas(), form=form, aviso=aviso,
+                           hoje=hoje, r=regras)
+
+
+@app.route("/requisicoes/<int:id>/decidir", methods=["POST"])
+@so_gerente
+def decidir_requisicao(id):
+    u = usuario_atual()
+    acao = request.form.get("acao")
+    motivo = request.form.get("motivo", "").strip()
+    if acao == "recusar" and not motivo:
+        flash("Para recusar, escreva o motivo.")
+    elif acao in ("aprovar", "recusar"):
+        with banco.conectar() as c:
+            c.execute("""UPDATE requisicoes SET status = ?, decidido_por = ?, decidido_em = datetime('now'),
+                         motivo_recusa = ? WHERE id = ? AND status = 'aberta'""",
+                      ("aprovada" if acao == "aprovar" else "recusada", u["id"], motivo or None, id))
+        flash("Requisição aprovada." if acao == "aprovar" else "Requisição recusada.")
+    return redirect(url_for("requisicoes", status=request.form.get("voltar", "todas")))
 
 
 # ---------------------------------------------------------------------------
