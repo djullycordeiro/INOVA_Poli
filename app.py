@@ -362,6 +362,41 @@ def planos():
     return render_template("planos.html", gasto=gasto, eco=eco, sim=regras.simular_plano(gasto, eco), r=regras)
 
 
+# ---------------------------------------------------------------------------
+# 4.1 Perfil
+# ---------------------------------------------------------------------------
+@app.route("/perfil", methods=["GET", "POST"])
+@login_obrigatorio
+def perfil():
+    u = usuario_atual()
+    if request.method == "POST":
+        acao = request.form.get("acao")
+        with banco.conectar() as c:
+            if acao == "nome":
+                nome = request.form.get("nome", "").strip()
+                if not nome:
+                    flash("O nome não pode ficar vazio.")
+                else:
+                    c.execute("UPDATE usuarios SET nome = ? WHERE id = ?", (nome, u["id"]))
+                    flash("Nome atualizado.")
+            elif acao == "senha":
+                atual = request.form.get("atual", "")
+                nova = request.form.get("nova", "")
+                if not check_password_hash(u["senha_hash"], atual):
+                    flash("A senha atual está incorreta.")
+                elif len(nova) < 8:
+                    flash("A nova senha precisa ter pelo menos 8 caracteres.")
+                elif nova != request.form.get("nova2", ""):
+                    flash("As senhas novas não conferem.")
+                elif nova == atual:
+                    flash("A nova senha precisa ser diferente da atual.")
+                else:
+                    c.execute("UPDATE usuarios SET senha_hash = ? WHERE id = ?", (generate_password_hash(nova), u["id"]))
+                    flash("Senha alterada.")
+        return redirect(url_for("perfil"))
+    return render_template("perfil.html")
+
+
 @app.route("/")
 def inicio():
     return redirect(url_for("cotacoes"))

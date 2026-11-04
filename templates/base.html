@@ -30,7 +30,7 @@
       {% endif %}
     </div>
     <div class="usuario">
-      <div><strong>{{ usuario.nome }}</strong><br>{{ 'Gerente · todas as áreas' if usuario.perfil == 'gerente' else 'Analista · ' ~ usuario.area }}</div>
+      <div><a href="{{ url_for('perfil') }}" style="color:#fff;text-decoration:none" title="Meu perfil"><strong>{{ usuario.nome }}</strong> ✎</a><br>{{ 'Gerente · todas as áreas' if usuario.perfil == 'gerente' else 'Analista · ' ~ usuario.area }}</div>
       <form method="post" action="{{ url_for('sair') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link-sair">Sair</button></form>
       <div>Protótipo INOVA POLI 2026<br>Dados fictícios · out/2025 a set/2026</div>
     </div>

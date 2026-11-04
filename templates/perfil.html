@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titulo %}Meu perfil{% endblock %}
+{% block conteudo %}
+<header class="cabecalho"><div class="titulo-tela">
+  <div class="passo">Minha conta</div>
+  <h1>Meu perfil</h1>
+  <p class="descricao">{{ usuario.email }} · {{ 'Gerente · todas as áreas' if usuario.perfil == 'gerente' else 'Analista · ' ~ usuario.area }}</p>
+</div></header>
+
+<div class="cartoes-2">
+  <section class="cartao">
+    <form method="post" style="display:flex;flex-direction:column;gap:16px">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="acao" value="nome">
+      <h2 style="margin:0;font-size:20px;font-weight:800">Nome</h2>
+      <label class="campo">Como você aparece no sistema<input name="nome" required value="{{ usuario.nome }}"></label>
+      <button class="botao" style="align-self:flex-start">Salvar nome</button>
+    </form>
+  </section>
+  <section class="cartao">
+    <form method="post" style="display:flex;flex-direction:column;gap:16px">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="acao" value="senha">
+      <h2 style="margin:0;font-size:20px;font-weight:800">Trocar senha</h2>
+      <label class="campo">Senha atual<input type="password" name="atual" required autocomplete="current-password"></label>
+      <label class="campo">Nova senha (mín. 8 caracteres)<input type="password" name="nova" required minlength="8" autocomplete="new-password"></label>
+      <label class="campo">Repita a nova senha<input type="password" name="nova2" required minlength="8" autocomplete="new-password"></label>
+      <button class="botao" style="align-self:flex-start">Trocar senha</button>
+    </form>
+  </section>
+</div>
+<p class="descricao" style="font-size:14px">O e-mail, o perfil e a área só podem ser mudados por um gerente, porque definem o que você pode ver.</p>
+{% endblock %}
