@@ -63,7 +63,7 @@
   {% if h.n_emerg %}
   <div class="tit">Pagou acima do histórico em {{ h.n_emerg }} compra{{ 's' if h.n_emerg != 1 }}</div>
   <div class="txt">Nas compras emergenciais deste item, o preço ficou em média {{ '%+d' % (h.pct_emerg * 100)|round|int if h.pct_emerg is not none else '' }}% acima das compras planejadas: {{ r.brl(h.pago_a_mais) }} a mais no período.</div>
-  <a class="botao-vermelho" href="{{ url_for('tela', nome='savings') }}">Ver quanto isso custou no ano →</a>
+  <a class="botao-vermelho" href="{{ url_for('savings') }}">Ver quanto isso custou no ano →</a>
   {% else %}
   <div class="tit">Nenhuma compra emergencial deste item</div>
   <div class="txt">Todas as compras foram planejadas. Veja abaixo os itens que mais tiveram emergências.</div>
@@ -99,6 +99,6 @@
 
 <div class="rodape-tela entre">
   <a class="botao-voltar" href="{{ url_for('nota') }}">← Nota da Compra</a>
-  <a class="botao-proximo" href="{{ url_for('tela', nome='savings') }}">Próximo: Savings →</a>
+  <a class="botao-proximo" href="{{ url_for('savings') }}">Próximo: Savings →</a>
 </div>
 {% endblock %}

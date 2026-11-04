@@ -288,6 +288,21 @@ def historico():
     return render_template("historico.html", hist=hist, codigo=codigo, categorias=sorted(categorias.items()),
                            mais_emergenciais=mais_emergenciais, r=regras)
 
+
+# ---------------------------------------------------------------------------
+# 3.4 Savings
+# ---------------------------------------------------------------------------
+@app.route("/savings")
+@login_obrigatorio
+def savings():
+    onde, params = filtro_area(usuario_atual())
+    with banco.conectar() as c:
+        compras = c.execute(f"SELECT * FROM compras WHERE {onde}", params).fetchall()
+        todas = c.execute("SELECT * FROM compras").fetchall()
+    # O desconto por cotações usa a empresa toda: numa área só, a amostra é pequena demais
+    return render_template("savings.html", s=regras.savings(compras),
+                           por_cotacoes=regras.desconto_por_cotacoes(todas), r=regras)
+
 # ---------------------------------------------------------------------------
 # As 6 telas (passo 3 vai preencher cada uma)
 # ---------------------------------------------------------------------------

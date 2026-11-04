@@ -263,3 +263,104 @@ def por_extenso(unidade):
     """'cx' -> 'caixa' (para 'preço por caixa')"""
     extenso = {"cx": "caixa", "un": "unidade", "kg": "kg", "L": "litro", "m": "metro"}
     return extenso.get(unidade, UNIDADES.get(unidade, (unidade,))[0])
+
+
+# ---------------------------------------------------------------------------
+# Savings
+# ---------------------------------------------------------------------------
+MESES_EXTENSO = ["outubro", "novembro", "dezembro", "janeiro", "fevereiro", "março",
+                 "abril", "maio", "junho", "julho", "agosto", "setembro"]
+CATEGORIA_NO_TEXTO = {  # como cada categoria aparece numa frase
+    "Embalagens": "embalagens", "Peças de Manutenção": "peças de manutenção",
+    "Frota e Logística": "frota", "EPIs e Uniformes": "EPIs",
+    "Insumos e Condimentos": "insumos", "Limpeza e Sanitização": "limpeza",
+    "Material de Laboratório": "material de laboratório", "Material de Escritório e TI": "escritório e TI",
+}
+
+
+def lista_em_texto(itens):
+    """['a', 'b', 'c'] -> 'a, b e c'"""
+    itens = list(itens)
+    return itens[0] if len(itens) == 1 else ", ".join(itens[:-1]) + " e " + itens[-1]
+
+
+def fracao_em_texto(f):
+    """0.48 -> 'quase metade'"""
+    for limite, texto in [(0.70, "a maior parte"), (0.55, "mais da metade"), (0.45, "quase metade"),
+                          (0.30, "cerca de um terço"), (0.20, "cerca de um quarto")]:
+        if f >= limite:
+            return texto
+    return f"{f:.0%}".replace(".", ",")
+
+
+def desconto_por_cotacoes(compras):
+    """Desconto médio na negociação por número de cotações (só compras planejadas)."""
+    resultado = []
+    for k in (1, 2, 3, 4):
+        grupo = [c for c in compras if c["tipo_compra"] == "Planejada" and int(c["qtd_cotacoes"]) == k]
+        descontos = [(c["saving_negociacao"] or 0) / (c["preco_unit_inicial"] * c["quantidade"]) for c in grupo]
+        resultado.append({"k": k, "pct": sum(descontos) / len(descontos) if descontos else None})
+    return resultado
+
+
+def savings(compras):
+    """Economia na negociação x perda nas emergenciais, no total, por mês, por categoria
+    e por quantidade de cotações. Também escreve as frases de 'deu certo' e 'deu errado'."""
+    economia = sum(c["saving_negociacao"] or 0 for c in compras)
+    emerg = [c for c in compras if c["tipo_compra"] == "Emergencial"]
+    perda = sum(c["pago_a_mais_vs_planejado"] or 0 for c in emerg)
+
+    # Mês a mês (índice 0 = out/2025 ... 11 = set/2026)
+    def mes(c):
+        a, m = int(c["data_pedido"][:4]), int(c["data_pedido"][5:7])
+        return (a - 2025) * 12 + m - 10
+    meses = [{"nome": MESES[i], "extenso": MESES_EXTENSO[i], "economia": 0.0, "perda": 0.0, "cats_perda": {}} for i in range(12)]
+    for c in compras:
+        m = meses[mes(c)]
+        m["economia"] += c["saving_negociacao"] or 0
+        if c["tipo_compra"] == "Emergencial":
+            m["perda"] += c["pago_a_mais_vs_planejado"] or 0
+            m["cats_perda"][c["categoria"]] = m["cats_perda"].get(c["categoria"], 0) + (c["pago_a_mais_vs_planejado"] or 0)
+    teto = max([m["economia"] for m in meses] + [m["perda"] for m in meses] + [1])
+    for m in meses:
+        m["h_economia"] = m["economia"] / teto * 100
+        m["h_perda"] = m["perda"] / teto * 100
+
+    # Por categoria
+    cats = {}
+    for c in compras:
+        x = cats.setdefault(c["categoria"], {"categoria": c["categoria"], "n": 0, "economia": 0.0, "perda": 0.0})
+        x["n"] += 1
+        x["economia"] += c["saving_negociacao"] or 0
+        if c["tipo_compra"] == "Emergencial":
+            x["perda"] += c["pago_a_mais_vs_planejado"] or 0
+    categorias = sorted(cats.values(), key=lambda x: x["economia"], reverse=True)
+
+    # Frases
+    melhores = sorted(meses, key=lambda m: m["economia"], reverse=True)[:2]
+    melhores = [m for m in meses if m in melhores]  # na ordem do calendário
+    texto_certo = (f"{lista_em_texto(m['extenso'] for m in melhores).capitalize()} tiveram a maior economia na negociação do ano."
+                   if economia else "")
+    pior = max(meses, key=lambda m: m["perda"])
+    texto_pior = ""
+    if pior["perda"]:
+        cats_pior = sorted(pior["cats_perda"], key=pior["cats_perda"].get, reverse=True)
+        texto_pior = (f"{pior['extenso'].capitalize()} foi o pior mês: {brl(round(pior['perda']))[:-3]} pagos a mais em compras "
+                      f"emergenciais de {lista_em_texto(CATEGORIA_NO_TEXTO.get(x, x.lower()) for x in cats_pior)}.")
+    pior_cat = max(categorias, key=lambda x: x["perda"]) if categorias else None
+    texto_cat = ""
+    if pior_cat and perda:
+        texto_cat = (f"{pior_cat['categoria']} concentra{'m' if pior_cat['categoria'].endswith('s') else ''} "
+                     f"{fracao_em_texto(pior_cat['perda'] / perda)} da perda do ano ({brl(pior_cat['perda'])}).")
+
+    return {
+        "economia": economia, "perda": perda, "saldo": economia - perda,
+        "perda_por_real": perda / economia if economia else None,
+        "meses": meses, "categorias": categorias,
+        "texto_certo": texto_certo, "texto_pior": texto_pior, "texto_cat": texto_cat,
+    }
+
+
+def pct(valor, casas=1):
+    """0.0516 -> '5,2%'"""
+    return "—" if valor is None else f"{valor * 100:.{casas}f}%".replace(".", ",")

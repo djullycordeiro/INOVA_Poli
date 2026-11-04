@@ -233,3 +233,36 @@ form.escolha-item { justify-content: flex-start; max-width: 620px; }
 .ranking-nome { flex: 1; font-weight: 700; font-size: 14px; }
 .ranking-info { font-size: 13px; white-space: nowrap; }
 @media (max-width: 640px) { .ranking-linha { flex-wrap: wrap; } .ranking-info { white-space: normal; } }
+
+/* ---------- 3.4 Savings ---------- */
+.cartoes-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.cartao-grande { background: #fff; border-radius: 18px; padding: 20px 22px; display: flex; flex-direction: column; gap: 4px; }
+.cartao-grande .rot { font-size: 14px; color: var(--texto-suave); }
+.cartao-grande .val { font-size: 32px; font-weight: 800; }
+.cartao-grande .sub { font-size: 13px; color: var(--texto-suave); }
+.cartao-grande.escuro { background: #004A21; color: #fff; }
+.cartao-grande.escuro .rot { color: #CFE6D2; } .cartao-grande.escuro .val { color: var(--amarelo); } .cartao-grande.escuro .sub { color: #E6F2E8; }
+.barras { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 8px; align-items: end; height: 260px; border-bottom: 1px solid #CFDCC5; padding: 0 4px; }
+.barras-mes { display: flex; align-items: flex-end; justify-content: center; gap: 4px; height: 100%; }
+.barra { display: block; width: 42%; max-width: 26px; border-radius: 6px 6px 0 0; }
+.barra-economia { background: #0D5C2A; } .barra-perda { background: #F08A80; }
+.barra:hover { outline: 3px solid rgba(255,210,31,0.8); }
+.meses-barras { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 8px; font-size: 12px; color: var(--texto-suave); text-align: center; padding: 0 4px; }
+.quadrado { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.lado-a-lado { display: flex; flex-wrap: wrap; gap: 16px; }
+.caixa-certo, .caixa-errado { flex: 1 1 320px; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; border: 2px solid; }
+.caixa-certo { background: #E3F3E0; border-color: #1E8E3E; color: #134D22; }
+.caixa-errado { background: #FDE7E5; border-color: #D7261E; color: #6E120E; }
+.caixa-certo .tit, .caixa-errado .tit { font-size: 18px; font-weight: 800; }
+.caixa-certo .txt, .caixa-errado .txt { font-size: 15px; line-height: 1.5; }
+.desconto-cotacoes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; text-align: center; }
+.desconto-cotacoes div { background: #fff; border-radius: 10px; padding: 10px 6px; }
+.desconto-cotacoes .k { font-size: 12px; } .desconto-cotacoes .v { font-size: 20px; font-weight: 800; }
+.por-categoria { background: #fff; border-radius: 18px; padding: 18px 20px; overflow-x: auto; }
+.por-categoria h2 { margin: 0 0 10px; font-size: 20px; font-weight: 800; }
+.por-categoria table { min-width: 620px; width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.por-categoria th { color: #4B5E52; font-weight: 700; text-align: left; padding: 8px 10px; }
+.por-categoria td { padding: 9px 10px; border-top: 1px solid #E1EAD8; }
+.por-categoria .num { text-align: right; }
+@media (max-width: 900px) { .cartoes-3 { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .barras { gap: 3px; } .meses-barras { gap: 3px; font-size: 10px; } .barras-mes { gap: 1px; } }

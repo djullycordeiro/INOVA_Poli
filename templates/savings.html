@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block titulo %}Savings{% endblock %}
+{% block conteudo %}
+<header class="cabecalho">
+  <div class="titulo-tela">
+    <div class="passo">Passo 4 de 6</div>
+    <h1>Savings</h1>
+    <p class="descricao" style="max-width:680px">Quanto a negociação economizou, quanto a pressa custou e o que vale repetir.</p>
+  </div>
+  <div class="pilulas">
+    <span class="pilula">{{ 'Natto Alimentos · Suprimentos' if usuario.perfil == 'gerente' else usuario.area }}</span>
+    <span class="pilula">out/2025 a set/2026</span>
+  </div>
+</header>
+
+<section class="cartoes-3" aria-label="Números do período">
+  <div class="cartao-grande"><div class="rot">Economia na negociação</div><div class="val cor-verde">{{ r.brl(s.economia) }}</div><div class="sub">primeira proposta − preço final</div></div>
+  <div class="cartao-grande"><div class="rot">Perdido em compras emergenciais</div><div class="val cor-vermelha">{{ r.brl(s.perda) }}</div><div class="sub">pago acima do preço planejado</div></div>
+  <div class="cartao-grande escuro"><div class="rot">Saldo real do ano</div><div class="val">{{ r.brl(s.saldo) }}</div>
+    <div class="sub">{% if not s.perda %}Nada se perdeu na pressa: toda a economia da negociação ficou no caixa.{% elif s.perda_por_real is not none %}De cada R$ 1,00 economizado negociando, {{ r.brl(s.perda_por_real) }} se perdeu na pressa.{% endif %}</div></div>
+</section>
+
+<section class="grafico" aria-label="Economia e perdas por mês">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:center">
+    <h2>Mês a mês</h2>
+    <div class="legenda-grafico">
+      <span><span class="quadrado" style="background:#0D5C2A"></span>Economia na negociação</span>
+      <span><span class="quadrado" style="background:#F08A80"></span>Pago a mais em emergências</span>
+    </div>
+  </div>
+  <div class="barras">
+    {% for m in s.meses %}
+    <div class="barras-mes">
+      <span class="barra barra-economia" style="height: {{ m.h_economia }}%" title="{{ m.nome }} · economia {{ r.brl(m.economia) }}"></span>
+      <span class="barra barra-perda" style="height: {{ m.h_perda }}%" title="{{ m.nome }} · pago a mais {{ r.brl(m.perda) }}"></span>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="meses-barras" aria-hidden="true">{% for m in s.meses %}<span>{{ m.nome }}</span>{% endfor %}</div>
+</section>
+
+<div class="lado-a-lado">
+  <section class="caixa-certo" aria-label="O que deu certo">
+    <div class="tit">O que deu certo: repita</div>
+    <div class="txt">Quanto mais fornecedores cotados, maior o desconto na negociação das compras planejadas{{ ' (média de todas as áreas da Natto)' if usuario.perfil != 'gerente' }}:</div>
+    <div class="desconto-cotacoes">
+      {% for x in por_cotacoes %}<div><div class="k">{{ x.k }} cotaç{{ 'ão' if x.k == 1 else 'ões' }}</div><div class="v">{{ r.pct(x.pct) }}</div></div>{% endfor %}
+    </div>
+    <div style="font-size:14px">{{ s.texto_certo }}</div>
+  </section>
+  <section class="caixa-errado" aria-label="O que deu errado">
+    <div class="tit">O que deu errado: evite</div>
+    {% if s.texto_pior %}<div class="txt">{{ s.texto_pior }}</div>{% endif %}
+    {% if s.texto_cat %}<div class="txt">{{ s.texto_cat }}</div>{% endif %}
+    {% if not s.perda %}<div class="txt">Nenhuma compra emergencial no período. Continue planejando.</div>{% endif %}
+    <a class="botao-vermelho" href="{{ url_for('tela', nome='radar') }}">Ver no Radar de Emergenciais →</a>
+  </section>
+</div>
+
+<section class="por-categoria" aria-label="Por categoria">
+  <h2>Por categoria</h2>
+  <table>
+    <thead><tr><th>Categoria</th><th class="num">Compras</th><th class="num">Economia na negociação</th><th class="num">Pago a mais em emergências</th></tr></thead>
+    <tbody>
+    {% for c in s.categorias %}
+      <tr><td style="font-weight:600">{{ c.categoria }}</td><td class="num">{{ c.n }}</td>
+        <td class="num cor-verde" style="font-weight:700">{{ r.brl(c.economia) }}</td>
+        <td class="num cor-vermelha" style="font-weight:700">{{ r.brl(c.perda) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<div class="rodape-tela entre">
+  <a class="botao-voltar" href="{{ url_for('historico') }}">← Histórico de preços</a>
+  <a class="botao-proximo" href="{{ url_for('tela', nome='radar') }}">Próximo: Radar de Emergenciais →</a>
+</div>
+{% endblock %}
