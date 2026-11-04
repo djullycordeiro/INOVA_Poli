@@ -18,7 +18,7 @@
     </div>
     <div class="menu">
       {% for endereco, rotulo in telas %}
-      <a href="{{ url_for('tela', nome=endereco) }}" {% if request.view_args.get('nome') == endereco %}aria-current="page"{% endif %}>
+      <a href="{{ url_for('tela', nome=endereco) }}" {% if request.path == '/' ~ endereco %}aria-current="page"{% endif %}>
         <span class="num">{{ loop.index }}</span><span class="rotulo">{{ rotulo }}</span>
         {% if endereco == 'radar' %}<span class="badge">3</span>{% endif %}
       </a>

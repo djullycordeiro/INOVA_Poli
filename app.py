@@ -11,6 +11,7 @@ from flask import Flask, abort, flash, redirect, render_template, request, sessi
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import banco
+import regras
 from seguranca import (configurar, filtro_area, limpar_erros_login, login_bloqueado,
                        login_obrigatorio, novo_codigo_convite, registrar_erro_login,
                        so_gerente, usuario_atual)
@@ -140,6 +141,63 @@ def convites():
             ORDER BY cv.criado_em DESC""").fetchall()
     return render_template("convites.html", convites=lista, areas=banco.areas(), validade=VALIDADE_CONVITE_DIAS)
 
+
+
+# ---------------------------------------------------------------------------
+# 3.1 Cotações
+# ---------------------------------------------------------------------------
+FILTROS_COTACAO = [
+    ("todos", "Todos"),
+    ("caro", "Escolheu mais caro"),
+    ("emergencial", "Emergenciais"),
+    ("unica", "1 só cotação"),
+]
+
+
+@app.route("/cotacoes")
+@login_obrigatorio
+def cotacoes():
+    u = usuario_atual()
+    onde, params = filtro_area(u)
+    filtro = request.args.get("filtro", "todos")
+
+    with banco.conectar() as c:
+        compras = c.execute(f"SELECT * FROM compras WHERE {onde} ORDER BY data_pedido DESC", params).fetchall()
+        todas_propostas = c.execute(
+            f"SELECT * FROM cotacoes WHERE id_compra IN (SELECT id_compra FROM compras WHERE {onde})"
+            " ORDER BY custo_total_hoje", params).fetchall()
+
+    # Agrupa as propostas por pedido e analisa cada um
+    por_pedido = {}
+    for p in todas_propostas:
+        por_pedido.setdefault(p["id_compra"], []).append(p)
+    pedidos = []
+    for compra in compras:
+        analise = regras.analisar_cotacao(compra, por_pedido.get(compra["id_compra"], []))
+        pedidos.append({"compra": compra, "analise": analise})
+
+    contagem = {
+        "todos": len(pedidos),
+        "caro": sum(p["analise"]["veredito"] in ("cara", "pressa") for p in pedidos),
+        "emergencial": sum(p["compra"]["tipo_compra"] == "Emergencial" for p in pedidos),
+        "unica": sum(p["analise"]["veredito"] == "unica" for p in pedidos),
+    }
+    visiveis = {
+        "todos": pedidos,
+        "caro": [p for p in pedidos if p["analise"]["veredito"] in ("cara", "pressa")],
+        "emergencial": [p for p in pedidos if p["compra"]["tipo_compra"] == "Emergencial"],
+        "unica": [p for p in pedidos if p["analise"]["veredito"] == "unica"],
+    }.get(filtro, pedidos)
+
+    # Pedido aberto: o da URL (?sel=PC-1004) ou o primeiro da lista
+    sel_id = request.args.get("sel")
+    selecionado = next((p for p in pedidos if p["compra"]["id_compra"] == sel_id), None)
+    if selecionado is None and visiveis:
+        selecionado = visiveis[0]
+
+    return render_template("cotacoes.html", pedidos=visiveis, sel=selecionado, filtro=filtro,
+                           filtros=FILTROS_COTACAO, contagem=contagem, lida=request.args.get("lida") == "1",
+                           r=regras)
 
 # ---------------------------------------------------------------------------
 # As 6 telas (passo 3 vai preencher cada uma)
