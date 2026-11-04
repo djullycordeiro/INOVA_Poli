@@ -182,3 +182,54 @@ h1 { margin: 0; font-size: 40px; font-weight: 400; color: #fff; font-family: 'Li
 a.resumo-nota { text-decoration: none; color: inherit; border: 3px solid #fff; transition: transform .12s, box-shadow .12s; }
 a.resumo-nota:hover { color: inherit; transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.15); }
 a.resumo-nota.ativo { border-color: var(--amarelo); box-shadow: 0 0 0 3px rgba(255,210,31,0.35); }
+
+/* ---------- 3.3 Histórico de preços ---------- */
+.escolha-item { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.atalhos { display: flex; flex-wrap: wrap; gap: 8px; }
+.atalho { border-radius: 999px; padding: 10px 16px; font-size: 14px; font-weight: 700; min-height: 44px; box-sizing: border-box; display: inline-flex; align-items: center;
+  text-decoration: none; background: transparent; color: #fff; border: 2px solid rgba(255,255,255,0.55); }
+.atalho:hover { color: #fff; background: rgba(255,255,255,0.08); }
+.atalho.ativo { background: #fff; color: var(--verde-lateral); border-color: #fff; }
+.escolha-item .filtro-select { min-width: 280px; flex: 0 1 380px; }
+.cartoes-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.cartao-num { background: #fff; border-radius: 16px; padding: 16px 18px; }
+.cartao-num .rot { font-size: 13px; color: var(--texto-suave); }
+.cartao-num .val { font-size: 26px; font-weight: 800; }
+.cartao-num .sub { font-size: 12px; color: var(--texto-suave); }
+.cor-verde { color: #1C6B33; } .cor-vermelha { color: #A51D17; }
+.grafico { background: #fff; border-radius: 18px; padding: 24px 24px 18px; display: flex; flex-direction: column; gap: 14px; }
+.grafico h2 { margin: 0; font-size: 20px; font-weight: 800; }
+.legenda-grafico { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--texto-suave); }
+.legenda-grafico > span { display: inline-flex; align-items: center; gap: 6px; }
+.ponto { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); }
+.ponto-p { width: 13px; height: 13px; background: #1E8E3E; }
+.ponto-e { width: 18px; height: 18px; background: #D7261E; border: 3px solid #fff; box-shadow: 0 0 0 1px #D7261E; box-sizing: border-box; }
+.ponto:hover { z-index: 2; outline: 3px solid rgba(255,210,31,0.8); }
+.area-grafico { position: relative; height: 320px; border-left: 1px solid #CFDCC5; border-bottom: 1px solid #CFDCC5; background: #FAFCF7; border-radius: 0 10px 0 0; }
+.eixo-y { position: relative; width: 72px; height: 320px; flex: none; }
+.eixo-y span { position: absolute; right: 0; transform: translateY(-50%); font-size: 12px; color: var(--texto-suave); white-space: nowrap; }
+.linha-grade { position: absolute; left: 0; right: 0; border-top: 1px solid #E8EFE0; }
+.linha-ref { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--verde-escuro); }
+.rotulo-ref { position: absolute; left: 8px; transform: translateY(-120%); font-size: 12px; font-weight: 700; color: var(--verde-escuro); background: #FAFCF7; padding: 0 4px; }
+.meses { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); font-size: 12px; color: var(--texto-suave); text-align: center; }
+.alerta-vermelho { background: #FDE7E5; border: 2px solid #D7261E; color: #6E120E; border-radius: 16px; padding: 16px 20px; display: flex; flex-direction: column; gap: 6px; }
+.alerta-vermelho .tit { font-size: 18px; font-weight: 800; } .alerta-vermelho .txt { font-size: 15px; line-height: 1.5; }
+.botao-vermelho { align-self: flex-start; margin-top: 6px; background: #D7261E; color: #fff; border-radius: 999px; padding: 10px 18px; font-size: 14px; font-weight: 700; min-height: 44px; box-sizing: border-box; display: inline-flex; align-items: center; text-decoration: none; }
+.botao-vermelho:hover { color: #fff; filter: brightness(0.95); }
+.tabela-compras { background: #fff; border-radius: 18px; padding: 18px 20px; overflow-x: auto; }
+.tabela-compras table { min-width: 560px; width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tabela-compras th { color: #4B5E52; font-weight: 700; text-align: left; padding: 8px 10px; }
+.tabela-compras td { padding: 8px 10px; border-top: 1px solid #E1EAD8; }
+.tabela-compras .num { text-align: right; font-weight: 700; }
+@media (max-width: 900px) { .cartoes-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .eixo-y { width: 56px; } .meses { font-size: 10px; } }
+form.escolha-item { justify-content: flex-start; max-width: 620px; }
+.ranking { margin-top: 10px; border-top: 1px solid #F3B7B2; padding-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.ranking-tit { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
+.ranking-linha { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 10px; background: #fff; color: #6E120E; text-decoration: none; min-height: 44px; box-sizing: border-box; border: 2px solid #fff; }
+.ranking-linha:hover { color: #6E120E; border-color: #F3B7B2; }
+.ranking-linha.ativo { border-color: #D7261E; }
+.ranking-pos { flex: none; width: 24px; height: 24px; border-radius: 50%; background: #D7261E; color: #fff; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.ranking-nome { flex: 1; font-weight: 700; font-size: 14px; }
+.ranking-info { font-size: 13px; white-space: nowrap; }
+@media (max-width: 640px) { .ranking-linha { flex-wrap: wrap; } .ranking-info { white-space: normal; } }

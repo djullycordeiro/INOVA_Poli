@@ -201,3 +201,65 @@ def dica_para_proxima(compra, analise, qtd_cotacoes):
     if qtd_cotacoes < 3:
         return "Cote com pelo menos 3 fornecedores: mais concorrência dá mais poder de negociação."
     return "Continue assim: cotar com 3 ou mais fornecedores e comparar pelo custo de hoje."
+
+
+# ---------------------------------------------------------------------------
+# Histórico de preços
+# ---------------------------------------------------------------------------
+from datetime import date
+
+INICIO_PERIODO, FIM_PERIODO = date(2025, 10, 1), date(2026, 9, 30)
+MESES = ["out", "nov", "dez", "jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set"]
+
+
+def nome_curto(item):
+    """'Luvas nitrílicas (cx c/ 100 un)' -> 'Luvas nitrílicas'"""
+    return item.split(" (")[0]
+
+
+def historico_do_item(compras):
+    """Recebe as compras de UM item (qualquer ordem) e devolve o resumo e os pontos do gráfico.
+    Cada ponto tem x e y em % para ser posicionado com CSS (0% = esquerda/topo)."""
+    compras = sorted(compras, key=lambda c: c["data_pedido"])
+    ref = compras[-1]["preco_medio_planejado_item"]
+    emerg = [c for c in compras if c["tipo_compra"] == "Emergencial"]
+    media_emerg = sum(c["preco_unit_final"] for c in emerg) / len(emerg) if emerg else None
+
+    precos = [c["preco_unit_final"] for c in compras] + ([ref] if ref else [])
+    baixo, alto = min(precos) * 0.9, max(precos) * 1.08   # folga em cima e embaixo do gráfico
+    altura = lambda v: (1 - (v - baixo) / (alto - baixo)) * 100
+    dias_periodo = (FIM_PERIODO - INICIO_PERIODO).days
+
+    pontos = []
+    for c in compras:
+        dia = date.fromisoformat(c["data_pedido"])
+        pontos.append({
+            "compra": c,
+            "x": (dia - INICIO_PERIODO).days / dias_periodo * 100,
+            "y": altura(c["preco_unit_final"]),
+            "emergencial": c["tipo_compra"] == "Emergencial",
+            "rotulo": f"{dia:%d/%m} · {brl(c['preco_unit_final'])}",
+            "vs": (c["preco_unit_final"] / ref - 1) if ref else None,
+        })
+
+    # 4 linhas de grade com o valor ao lado
+    grade = []
+    for k in range(4):
+        v = baixo + (alto - baixo) * (k + 0.5) / 4
+        grade.append({"y": altura(v), "texto": brl(v)})
+
+    return {
+        "item": compras[0]["item"], "unidade": compras[0]["unidade"],
+        "ref": ref, "ref_y": altura(ref) if ref else None,
+        "n": len(compras), "n_emerg": len(emerg),
+        "media_emerg": media_emerg,
+        "pct_emerg": (media_emerg / ref - 1) if (ref and media_emerg) else None,
+        "pago_a_mais": sum(c["pago_a_mais_vs_planejado"] or 0 for c in emerg),
+        "pontos": pontos, "grade": grade, "meses": MESES,
+    }
+
+
+def por_extenso(unidade):
+    """'cx' -> 'caixa' (para 'preço por caixa')"""
+    extenso = {"cx": "caixa", "un": "unidade", "kg": "kg", "L": "litro", "m": "metro"}
+    return extenso.get(unidade, UNIDADES.get(unidade, (unidade,))[0])

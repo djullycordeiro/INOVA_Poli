@@ -250,6 +250,44 @@ def nota():
     return render_template("nota.html", lista=visiveis, sel=sel, resumo=resumo, filtro=filtro,
                            filtros=FILTROS_NOTA, contagem=contagem, cores=regras.CORES_NOTA, r=regras)
 
+
+# ---------------------------------------------------------------------------
+# 3.3 Histórico de preços
+# ---------------------------------------------------------------------------
+@app.route("/historico")
+@login_obrigatorio
+def historico():
+    onde, params = filtro_area(usuario_atual())
+    with banco.conectar() as c:
+        compras = c.execute(f"SELECT * FROM compras WHERE {onde}", params).fetchall()
+
+    # Agrupa por item
+    por_item = {}
+    for cp in compras:
+        por_item.setdefault(cp["codigo_item"], []).append(cp)
+
+    # Dropdown: todos os itens, agrupados por categoria
+    categorias = {}
+    for cod, lista in sorted(por_item.items(), key=lambda kv: kv[1][0]["item"]):
+        categorias.setdefault(lista[0]["categoria"], []).append((cod, lista[0]["item"], len(lista)))
+
+    # Ranking: os 5 itens com mais compras emergenciais (desempate: quanto pagou a mais)
+    def peso(lista):
+        emerg = [x for x in lista if x["tipo_compra"] == "Emergencial"]
+        return (len(emerg), sum(x["pago_a_mais_vs_planejado"] or 0 for x in emerg))
+    mais_emergenciais = [
+        {"codigo": cod, "nome": regras.nome_curto(lista[0]["item"]), "n": peso(lista)[0], "extra": peso(lista)[1]}
+        for cod, lista in sorted(por_item.items(), key=lambda kv: peso(kv[1]), reverse=True)[:5]
+        if peso(lista)[0] > 0]
+
+    codigo = request.args.get("item")
+    if codigo not in por_item:
+        codigo = mais_emergenciais[0]["codigo"] if mais_emergenciais else next(iter(por_item), None)
+    hist = regras.historico_do_item(por_item[codigo]) if codigo else None
+
+    return render_template("historico.html", hist=hist, codigo=codigo, categorias=sorted(categorias.items()),
+                           mais_emergenciais=mais_emergenciais, r=regras)
+
 # ---------------------------------------------------------------------------
 # As 6 telas (passo 3 vai preencher cada uma)
 # ---------------------------------------------------------------------------
