@@ -383,3 +383,14 @@ form.escolha-item { justify-content: flex-start; max-width: 620px; }
 .opcao-vencedora:has(input:checked) { border-color: var(--verde-botao); background: #F3F7EC; }
 .opcao-vencedora input { accent-color: var(--verde-botao); width: 18px; height: 18px; flex: none; }
 .opcao-vencedora .etiqueta, .opcao-vencedora .atrasa { margin-left: 6px; }
+
+/* ---------- 4.5 Bases de dados ---------- */
+.selo-base { align-self: flex-start; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+.selo-base.base-pitch { background: rgba(255,255,255,0.14); color: #fff; border: 1px solid rgba(255,255,255,0.45); }
+.selo-base.base-natto { background: #fff; color: #A51D17; border: 2px solid #D7261E; }
+.cartao-base { background: #fff; border-radius: 18px; padding: 22px 24px; display: flex; flex-direction: column; gap: 10px; border: 3px solid #fff; }
+.cartao-base.ativa { border-color: var(--amarelo); box-shadow: 0 0 0 3px rgba(255,210,31,0.35); }
+.cartao-base h2 { margin: 0; font-size: 22px; font-weight: 800; }
+.cartao-base .numeros { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 15px; color: var(--texto-suave); }
+.cartao-base .numeros strong { color: var(--texto); font-size: 20px; }
+.etiqueta-ativa { align-self: flex-start; background: var(--amarelo); color: #3A2E00; font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.06em; }

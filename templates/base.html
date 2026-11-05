@@ -15,6 +15,7 @@
       <a class="logo" href="{{ url_for('inicio') }}"><img src="{{ url_for('static', filename='logo.svg') }}" alt=""><span><b>Just</b><span>Plan</span></span></a>
       <div class="subtitulo">Painel de Compras inteligente</div>
       <div class="selo">Cliente: Natto Alimentos</div>
+      <div class="selo-base base-{{ base_chave }}" title="{{ base.descricao }}">Base: {{ base.nome }} · {{ base.descricao }}</div>
     </div>
     <div class="menu">
       {% for endereco, rotulo in telas %}
@@ -28,6 +29,9 @@
         {% if n_abertas %}<span class="badge badge-amarelo" title="{{ n_abertas }} aguardando aprovação">{{ n_abertas }}</span>{% endif %}
       </a>
       {% if usuario.perfil == 'gerente' %}
+      <a href="{{ url_for('bases') }}" {% if request.endpoint == 'bases' %}aria-current="page"{% endif %}>
+        <span class="num">⇄</span><span class="rotulo">Bases de dados</span>
+      </a>
       <a href="{{ url_for('convites') }}" {% if request.endpoint == 'convites' %}aria-current="page"{% endif %}>
         <span class="num">✉</span><span class="rotulo">Convites</span>
       </a>
@@ -36,7 +40,7 @@
     <div class="usuario">
       <div><a href="{{ url_for('perfil') }}" style="color:#fff;text-decoration:none" title="Meu perfil"><strong>{{ usuario.nome }}</strong> ✎</a><br>{{ 'Gerente · todas as áreas' if usuario.perfil == 'gerente' else 'Analista · ' ~ usuario.area }}</div>
       <form method="post" action="{{ url_for('sair') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link-sair">Sair</button></form>
-      <div>Protótipo INOVA POLI 2026<br>Dados fictícios · {{ periodo }}</div>
+      <div>Protótipo INOVA POLI 2026<br>{{ 'Dados fictícios' if base_chave == 'pitch' else 'Dados reais' }} · {{ periodo }}</div>
     </div>
   </nav>
   <main class="principal">

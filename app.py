@@ -42,6 +42,9 @@ def atualizar_periodo():
             "SELECT MAX(data_pedido), SUM(origem = 'site') FROM compras").fetchone()
     if ultima:
         regras.definir_periodo(date.fromisoformat(ultima[:10]), bool(do_site))
+    else:   # base vazia: período = os 12 meses até hoje
+        regras.definir_periodo(date.today(), True)
+    g.base = banco.base_ativa()
 
 
 def no_periodo():
@@ -83,7 +86,8 @@ def variaveis_globais():
         with banco.conectar() as c:
             abertas = c.execute("SELECT COUNT(*) FROM requisicoes WHERE status = 'aberta'").fetchone()[0]
     return {"usuario": u, "telas": TELAS, "csrf": session.get("csrf", ""), "n_alertas": alertas, "n_abertas": abertas,
-            "periodo": regras.periodo_texto()}
+            "periodo": regras.periodo_texto(), "base": banco.BASES[g.get("base", banco.BASE_PADRAO)],
+            "base_chave": g.get("base", banco.BASE_PADRAO)}
 
 
 # ---------------------------------------------------------------------------
@@ -621,6 +625,29 @@ def registrar_compra(id):
 def banco_todas_compras():
     with banco.conectar() as c:
         return todas_no_periodo(c)
+
+
+# ---------------------------------------------------------------------------
+# 4.5 Bases de dados (Pitch x Natto) — só gerente
+# ---------------------------------------------------------------------------
+@app.route("/bases", methods=["GET", "POST"])
+@so_gerente
+def bases():
+    if request.method == "POST":
+        escolhida = request.form.get("base")
+        if escolhida in banco.BASES:
+            banco.definir_base(escolhida)
+            flash(f"Agora o site está usando a base {banco.BASES[escolhida]['nome']} ({banco.BASES[escolhida]['descricao']}) "
+                  "para todos os usuários.")
+        return redirect(url_for("bases"))
+    resumo = []
+    for chave, info in banco.BASES.items():
+        with banco.conectar(chave) as c:
+            n = c.execute("SELECT COUNT(*) FROM compras").fetchone()[0]
+            r = c.execute("SELECT COUNT(*) FROM requisicoes").fetchone()[0]
+            ultima = c.execute("SELECT MAX(data_pedido) FROM compras").fetchone()[0]
+        resumo.append({"chave": chave, **info, "compras": n, "requisicoes": r, "ultima": ultima})
+    return render_template("bases.html", bases=resumo, r=regras)
 
 
 # ---------------------------------------------------------------------------
