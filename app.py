@@ -6,6 +6,7 @@ Para rodar:
 """
 
 import json
+import os
 import re
 import secrets
 from datetime import date, datetime, timedelta, timezone
@@ -865,5 +866,28 @@ def inicio():
     return redirect(url_for("cotacoes"))
 
 
+# ---------------------------------------------------------------------------
+# Páginas de erro
+# ---------------------------------------------------------------------------
+@app.errorhandler(403)
+def proibido(_):
+    return render_template("erro.html", codigo=403, titulo="Acesso negado",
+                           texto="Seu perfil não tem permissão para ver esta página."), 403
+
+
+@app.errorhandler(404)
+def nao_encontrado(_):
+    return render_template("erro.html", codigo=404, titulo="Página não encontrada",
+                           texto="O endereço não existe ou o item foi removido."), 404
+
+
+@app.errorhandler(413)
+def grande_demais(_):
+    return render_template("erro.html", codigo=413, titulo="Arquivo grande demais",
+                           texto="O limite é 10 MB. Divida a planilha em arquivos menores."), 413
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Modo de depuração só quando pedido (JUSTPLAN_DEBUG=1). NUNCA ligue no site publicado:
+    # ele mostra o código e permite executar comandos pelo navegador.
+    app.run(debug=os.environ.get("JUSTPLAN_DEBUG") == "1")

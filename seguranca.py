@@ -34,9 +34,22 @@ def configurar(app):
     app.config.update(
         SESSION_COOKIE_HTTPONLY=True,      # JavaScript não consegue ler o cookie de login
         SESSION_COOKIE_SAMESITE="Lax",     # outros sites não enviam o cookie junto
+        # Online (JUSTPLAN_PRODUCAO=1), o cookie só viaja por HTTPS. No computador local fica desligado.
+        SESSION_COOKIE_SECURE=os.environ.get("JUSTPLAN_PRODUCAO") == "1",
         PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
     )
     app.before_request(_protecao_csrf)
+    app.after_request(_cabecalhos_de_seguranca)
+
+
+def _cabecalhos_de_seguranca(resposta):
+    """Instruções para o navegador que fecham brechas comuns."""
+    resposta.headers.setdefault("X-Content-Type-Options", "nosniff")      # não "adivinhar" o tipo do arquivo
+    resposta.headers.setdefault("X-Frame-Options", "DENY")                # o site não pode ser embutido em outro
+    resposta.headers.setdefault("Referrer-Policy", "same-origin")         # não vazar endereços para outros sites
+    if os.environ.get("JUSTPLAN_PRODUCAO") == "1":
+        resposta.headers.setdefault("Strict-Transport-Security", "max-age=31536000")   # sempre HTTPS
+    return resposta
 
 
 def _protecao_csrf():
