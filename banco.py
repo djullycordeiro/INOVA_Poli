@@ -67,6 +67,18 @@ CREATE TABLE IF NOT EXISTS requisicoes (
     criado_em   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS propostas (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    requisicao_id        INTEGER NOT NULL REFERENCES requisicoes(id),
+    fornecedor           TEXT NOT NULL,
+    preco_unit           REAL NOT NULL,
+    frete                REAL NOT NULL DEFAULT 0,
+    prazo_pagamento_dias INTEGER NOT NULL DEFAULT 0,
+    prazo_entrega_dias   INTEGER NOT NULL,
+    criado_por           INTEGER NOT NULL REFERENCES usuarios(id),
+    criado_em            TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS compras (
     id_compra TEXT PRIMARY KEY, data_pedido TEXT, area_solicitante TEXT, categoria TEXT,
     codigo_item TEXT, item TEXT, unidade TEXT, quantidade REAL, fornecedor TEXT, comprador TEXT,

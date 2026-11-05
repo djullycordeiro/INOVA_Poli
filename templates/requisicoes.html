@@ -95,6 +95,10 @@
       {% elif x.decidiu %}
         <span class="req-info">{{ 'Aprovada' if x.status in ('aprovada', 'concluida') else 'Recusada' }} por {{ x.decidiu }} em {{ r.data_br(x.decidido_em) }}</span>
         {% if x.motivo_recusa %}<span class="req-just">Motivo: “{{ x.motivo_recusa }}”</span>{% endif %}
+        {% if x.tipo == 'planejada' and x.status in ('aprovada', 'concluida') %}
+        <a class="botao-peq botao-aprovar" style="text-decoration:none;display:inline-flex;align-items:center"
+           href="{{ url_for('cotar_requisicao', id=x.id) }}">{{ 'Lançar cotações' if x.status == 'aprovada' else 'Ver cotações' }}{% if x.n_propostas %} ({{ x.n_propostas }}){% endif %} →</a>
+        {% endif %}
       {% endif %}
     </div>
   </article>

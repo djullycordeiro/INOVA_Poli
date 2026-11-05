@@ -430,7 +430,8 @@ def requisicoes():
     onde, params = ("1 = 1", []) if u["perfil"] == "gerente" else ("r.area = ?", [u["area"]])
     with banco.conectar() as c:
         lista = c.execute(f"""
-            SELECT r.*, autor.nome AS autor, quem.nome AS decidiu
+            SELECT r.*, autor.nome AS autor, quem.nome AS decidiu,
+                   (SELECT COUNT(*) FROM propostas p WHERE p.requisicao_id = r.id) AS n_propostas
             FROM requisicoes r JOIN usuarios autor ON autor.id = r.criado_por
             LEFT JOIN usuarios quem ON quem.id = r.decidido_por
             WHERE {onde} ORDER BY r.status != 'aberta', r.criado_em DESC""", params).fetchall()
@@ -457,6 +458,96 @@ def decidir_requisicao(id):
                       ("aprovada" if acao == "aprovar" else "recusada", u["id"], motivo or None, id))
         flash("Requisição aprovada." if acao == "aprovar" else "Requisição recusada.")
     return redirect(url_for("requisicoes", status=request.form.get("voltar", "todas")))
+
+
+# ---------------------------------------------------------------------------
+# 4.3 Lançar cotações de uma requisição aprovada
+# ---------------------------------------------------------------------------
+def requisicao_permitida(id, u):
+    """Busca a requisição e confere se o usuário pode mexer nela (gerente ou analista da área)."""
+    with banco.conectar() as c:
+        req = c.execute("SELECT * FROM requisicoes WHERE id = ?", (id,)).fetchone()
+    if req is None:
+        abort(404)
+    if u["perfil"] != "gerente" and req["area"] != u["area"]:
+        abort(403)
+    return req
+
+
+def _numero_do_form(nome, inteiro=False):
+    """'1.234,56' ou '1234.56' -> 1234.56; vazio -> 0; inválido -> None"""
+    texto = request.form.get(nome, "").strip()
+    if not texto:
+        return 0
+    if "," in texto:
+        texto = texto.replace(".", "").replace(",", ".")
+    try:
+        valor = float(texto)
+    except ValueError:
+        return None
+    if valor < 0:
+        return None
+    return int(valor) if inteiro else valor
+
+
+@app.route("/requisicoes/<int:id>/cotacoes", methods=["GET", "POST"])
+@login_obrigatorio
+def cotar_requisicao(id):
+    u = usuario_atual()
+    req = requisicao_permitida(id, u)
+    if req["tipo"] != "planejada" or req["status"] not in ("aprovada", "concluida"):
+        flash("Só dá para lançar cotações de requisições de compra já aprovadas.")
+        return redirect(url_for("requisicoes"))
+    pode_editar = req["status"] == "aprovada"
+
+    if request.method == "POST" and pode_editar:
+        acao = request.form.get("acao")
+        with banco.conectar() as c:
+            if acao == "quantidade":
+                qtd = _numero_do_form("quantidade")
+                if not qtd:
+                    flash("Informe uma quantidade maior que zero.")
+                else:
+                    c.execute("UPDATE requisicoes SET quantidade = ? WHERE id = ?", (qtd, id))
+            elif acao == "adicionar":
+                fornecedor = request.form.get("fornecedor", "").strip()
+                preco = _numero_do_form("preco_unit")
+                frete = _numero_do_form("frete")
+                pagamento = _numero_do_form("prazo_pagamento_dias", inteiro=True)
+                entrega = _numero_do_form("prazo_entrega_dias", inteiro=True)
+                if not fornecedor:
+                    flash("Informe o fornecedor.")
+                elif not preco:
+                    flash("Informe o preço unitário.")
+                elif None in (frete, pagamento, entrega):
+                    flash("Frete e prazos precisam ser números (use 0 para à vista ou frete grátis).")
+                elif c.execute("SELECT 1 FROM propostas WHERE requisicao_id = ? AND fornecedor = ?", (id, fornecedor)).fetchone():
+                    flash(f"Já existe uma proposta de {fornecedor} nesta requisição. Exclua a antiga para lançar de novo.")
+                else:
+                    c.execute("""INSERT INTO propostas (requisicao_id, fornecedor, preco_unit, frete, prazo_pagamento_dias,
+                                 prazo_entrega_dias, criado_por) VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                              (id, fornecedor, preco, frete, pagamento, entrega, u["id"]))
+                    flash(f"Proposta de {fornecedor} lançada.")
+            elif acao == "excluir":
+                c.execute("DELETE FROM propostas WHERE id = ? AND requisicao_id = ?", (request.form.get("proposta"), id))
+                flash("Proposta excluída.")
+        return redirect(url_for("cotar_requisicao", id=id))
+
+    with banco.conectar() as c:
+        linhas = c.execute("SELECT * FROM propostas WHERE requisicao_id = ? ORDER BY criado_em", (id,)).fetchall()
+        fornecedores = [l[0] for l in c.execute(
+            "SELECT DISTINCT fornecedor FROM cotacoes UNION SELECT DISTINCT fornecedor FROM propostas ORDER BY 1")]
+        item = c.execute("SELECT item, unidade, categoria FROM compras WHERE codigo_item = ? LIMIT 1",
+                         (req["itens"],)).fetchone()
+    descontos = {x["k"]: x["pct"] for x in regras.desconto_por_cotacoes(banco_todas_compras())}
+    analise = regras.comparar_propostas(linhas, req["quantidade"] or 0, req["data_necessaria"], regras.DATA_DE_HOJE)
+    return render_template("cotar.html", req=req, item=item, analise=analise, fornecedores=fornecedores,
+                           descontos=descontos, pode_editar=pode_editar, r=regras)
+
+
+def banco_todas_compras():
+    with banco.conectar() as c:
+        return c.execute("SELECT * FROM compras").fetchall()
 
 
 # ---------------------------------------------------------------------------

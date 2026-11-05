@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block titulo %}Cotações da requisição{% endblock %}
+{% block conteudo %}{% set a = analise %}
+<header class="cabecalho">
+  <div class="titulo-tela">
+    <div class="passo">REQ-{{ '%04d' % req.id }} · {{ req.area }}</div>
+    <h1>Lançar cotações</h1>
+    <p class="descricao" style="max-width:700px">Lance a proposta de cada fornecedor. O custo de hoje é calculado na hora e a mais barata fica em verde.</p>
+  </div>
+  <div class="pilulas"><span class="tipo tipo-{{ req.urgencia }}">{{ req.urgencia }}</span></div>
+</header>
+
+<section class="cartao" style="display:flex;flex-direction:column;gap:10px">
+  <h2 style="margin:0;font-size:22px;font-weight:800">{{ req.titulo }}</h2>
+  <div class="resumo-req">
+    {% if req.quantidade %}<span>Quantidade: <strong>{{ r.quantidade(req.quantidade, item.unidade if item else '') }}</strong></span>{% endif %}
+    {% if req.data_necessaria %}<span>Precisa chegar até: <strong>{{ r.data_br(req.data_necessaria) }}</strong></span>{% endif %}
+    {% if req.data_limite %}<span>Pedir até: <strong>{{ r.data_br(req.data_limite) }}</strong></span>{% endif %}
+    <span>Hoje: <strong>{{ r.data_br(r.DATA_DE_HOJE.isoformat()) }}</strong></span>
+  </div>
+  {% if not req.quantidade and pode_editar %}
+  <form method="post" style="display:flex;flex-wrap:wrap;gap:12px;align-items:end">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="acao" value="quantidade">
+    <label class="campo">Esta requisição veio do Radar sem quantidade. Quantas {{ r.por_extenso(item.unidade) if item else 'unidades' }}?<input name="quantidade" inputmode="decimal" required></label>
+    <button class="botao">Salvar quantidade</button>
+  </form>
+  {% endif %}
+</section>
+
+{% if req.quantidade %}
+{% if pode_editar %}
+<section class="cartao" aria-label="Nova proposta">
+  <h2 style="margin:0 0 14px;font-size:20px;font-weight:800">Nova proposta</h2>
+  <form method="post" class="form-proposta">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="acao" value="adicionar">
+    <label class="campo">Fornecedor<input name="fornecedor" list="lista-fornecedores" required autocomplete="off"></label>
+    <datalist id="lista-fornecedores">{% for f in fornecedores %}<option value="{{ f }}">{% endfor %}</datalist>
+    <label class="campo">Preço unit. (R$)<input name="preco_unit" inputmode="decimal" required placeholder="0,00"></label>
+    <label class="campo">Frete (R$)<input name="frete" inputmode="decimal" placeholder="0 = grátis"></label>
+    <label class="campo">Pagamento (dias)<input name="prazo_pagamento_dias" inputmode="numeric" placeholder="0 = à vista"></label>
+    <label class="campo">Entrega (dias)<input name="prazo_entrega_dias" inputmode="numeric" required></label>
+    <button class="botao">Lançar</button>
+  </form>
+</section>
+{% endif %}
+
+<section class="painel" style="flex:none" aria-label="Propostas">
+  <div class="contador-cot">
+    <span class="bolinhas">{% for i in range([a.linhas|length, r.COTACOES_RECOMENDADAS]|max) %}<span class="{{ 'cheia' if i < a.linhas|length }}"></span>{% endfor %}</span>
+    {% if a.faltam %}
+      <span><strong>{{ a.linhas|length }} de {{ r.COTACOES_RECOMENDADAS }}</strong> cotações recomendadas.
+        {% if descontos[3] %}Com 3 cotações, o desconto médio na Natto foi de <strong>{{ r.pct(descontos[3]) }}</strong>{% if descontos[1] is not none %} (com 1, {{ r.pct(descontos[1]) }}){% endif %}.{% endif %}</span>
+    {% else %}
+      <span><strong>{{ a.linhas|length }} cotações</strong>: concorrência suficiente para negociar.</span>
+    {% endif %}
+  </div>
+
+  {% if a.linhas %}
+  <div class="propostas">
+    <table aria-label="Propostas lançadas">
+      <thead><tr><th>Fornecedor</th><th class="num">Preço unit.</th><th class="num">Frete</th><th>Pagamento</th><th>Entrega</th><th class="num">Custo total</th><th class="num">Custo de hoje</th>{% if pode_editar %}<th></th>{% endif %}</tr></thead>
+      <tbody>
+      {% for l in a.linhas %}{% set p = l.p %}
+        <tr class="{{ 'melhor' if l.melhor and a.linhas|length > 1 }}">
+          <td><span class="fornecedor">{{ p.fornecedor }}</span>
+            {% if l.melhor and a.linhas|length > 1 %}<span class="etiqueta etiqueta-melhor">Melhor custo de hoje{{ ' no prazo' if a.mais_barata_atrasa }}</span>{% endif %}
+            {% if l.atraso %}<span class="atrasa">chega {{ l.atraso }} dia{{ 's' if l.atraso != 1 }} depois do necessário</span>{% endif %}</td>
+          <td class="num">{{ r.brl(p.preco_unit) }}</td>
+          <td class="num">{{ 'grátis' if not p.frete else r.brl(p.frete) }}</td>
+          <td>{{ r.prazo_pagamento(p.prazo_pagamento_dias) }}</td>
+          <td>{{ r.prazo_entrega(p.prazo_entrega_dias) }} · {{ r.data_br(l.chegada.isoformat()) }}</td>
+          <td class="num">{{ r.brl(l.custo_total) }}</td>
+          <td class="num" style="font-weight:700">{{ r.brl(l.custo_hoje) }}</td>
+          {% if pode_editar %}<td><form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="acao" value="excluir"><input type="hidden" name="proposta" value="{{ p.id }}"><button class="botao-x" title="Excluir proposta" aria-label="Excluir proposta de {{ p.fornecedor }}">Excluir</button></form></td>{% endif %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if a.mais_barata_atrasa %}
+  <div class="veredito veredito-pressa">
+    <div class="veredito-titulo">A proposta mais barata chega tarde</div>
+    <div class="veredito-texto">{{ a.mais_barata.p.fornecedor }} tem o menor custo de hoje, mas chega depois da data necessária. Por isso a recomendada é {{ a.melhor.p.fornecedor }}, a mais barata entre as que chegam no prazo. Da próxima vez, pedir com mais antecedência evita pagar a diferença.</div>
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="vazio" style="background:#F3F7EC">Nenhuma proposta lançada ainda.</div>
+  {% endif %}
+  <div class="nota-rodape">Custo de hoje = (preço × quantidade + frete) trazido a valor presente com custo do dinheiro de 1% ao mês. A chegada é estimada a partir de hoje + prazo de entrega.</div>
+</section>
+{% endif %}
+
+<div class="rodape-tela entre">
+  <a class="botao-voltar" href="{{ url_for('requisicoes') }}">← Requisições</a>
+  {% if a.linhas|length and pode_editar %}<span class="botao-proximo" style="opacity:.6" title="Chega no passo 4.4">Registrar compra (passo 4.4)</span>{% endif %}
+</div>
+{% endblock %}

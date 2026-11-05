@@ -625,3 +625,31 @@ def simular_plano(gasto_milhoes, economia_pct):
 def reais(valor):
     """Valor arredondado, sem centavos: 37880 -> 'R$ 37.880'"""
     return brl(round(valor))[:-3]
+
+
+# ---------------------------------------------------------------------------
+# Propostas de uma requisição (antes de virar compra)
+# ---------------------------------------------------------------------------
+COTACOES_RECOMENDADAS = 3
+
+
+def comparar_propostas(propostas, quantidade, data_necessaria, hoje):
+    """Calcula custo total e custo de hoje de cada proposta, marca a mais barata
+    e avisa quais chegam depois da data necessária."""
+    precisa = date.fromisoformat(data_necessaria) if data_necessaria else None
+    linhas = []
+    for p in propostas:
+        total = p["preco_unit"] * quantidade + (p["frete"] or 0)
+        chegada = hoje + timedelta(days=p["prazo_entrega_dias"])
+        atraso = (chegada - precisa).days if precisa else 0
+        linhas.append({"p": p, "custo_total": total,
+                       "custo_hoje": custo_de_hoje(total, p["prazo_pagamento_dias"]),
+                       "chegada": chegada, "atraso": max(atraso, 0)})
+    no_prazo = [l for l in linhas if not l["atraso"]]
+    melhor = min(no_prazo or linhas, key=lambda l: l["custo_hoje"]) if linhas and quantidade else None
+    mais_barata = min(linhas, key=lambda l: l["custo_hoje"]) if linhas and quantidade else None
+    for l in linhas:
+        l["melhor"] = l is melhor
+    return {"linhas": sorted(linhas, key=lambda l: l["custo_hoje"]), "melhor": melhor,
+            "mais_barata_atrasa": bool(mais_barata and mais_barata is not melhor),
+            "mais_barata": mais_barata, "faltam": max(COTACOES_RECOMENDADAS - len(linhas), 0)}
