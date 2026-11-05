@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block titulo %}Importar compras{% endblock %}
+{% block conteudo %}
+<header class="cabecalho"><div class="titulo-tela">
+  <div class="passo">Área do gerente · base {{ base.nome }}</div>
+  <h1>Importar compras</h1>
+  <p class="descricao" style="max-width:720px">Envie uma planilha com várias compras de uma vez. A JustPlan confere linha por linha, calcula custo de hoje, economia, preço de referência e nota, e mostra uma prévia antes de gravar.</p>
+</div></header>
+
+{% if not previa %}
+<section class="cartao" style="display:flex;flex-direction:column;gap:14px">
+  <h2 style="margin:0;font-size:20px;font-weight:800">1. Baixe o modelo (opcional)</h2>
+  <p style="margin:0;color:#4F6153;font-size:15px;line-height:1.5">O modelo tem a aba <strong>compras</strong> (obrigatória), a aba <strong>cotacoes</strong> (opcional, com as propostas concorrentes) e a aba <strong>instrucoes</strong>. Não precisa ser idêntico: a JustPlan reconhece nomes parecidos, como “Data do pedido”, “Qtd” ou “Preço unitário”.</p>
+  <a class="botao" style="align-self:flex-start;text-decoration:none;display:inline-flex;align-items:center" href="{{ url_for('modelo_importacao') }}">Baixar planilha modelo (.xlsx)</a>
+</section>
+
+<section class="cartao" style="display:flex;flex-direction:column;gap:14px">
+  <h2 style="margin:0;font-size:20px;font-weight:800">2. Envie a planilha</h2>
+  <form method="post" enctype="multipart/form-data" class="envio">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="campo" style="flex:1 1 320px">Arquivo .xlsx ou .csv (até 10 MB)<input type="file" name="planilha" accept=".xlsx,.csv" required></label>
+    <button class="botao botao-amarelo">Conferir planilha →</button>
+  </form>
+  <p style="margin:0;color:#4F6153;font-size:14px">Colunas obrigatórias: {% for campo, (obrig, apelidos, explic) in colunas.items() if obrig %}<strong>{{ explic }}</strong>{{ ', ' if not loop.last }}{% endfor %}.</p>
+</section>
+
+{% if base_chave == 'pitch' %}
+<div class="aviso">Atenção: a base em uso é a <strong>Pitch</strong> (dados da apresentação). Para dados reais, troque para a base Natto em <a href="{{ url_for('bases') }}">Bases de dados</a>.</div>
+{% endif %}
+
+{% else %}{% set p = previa %}
+<section class="cartao" style="display:flex;flex-direction:column;gap:14px">
+  <h2 style="margin:0;font-size:20px;font-weight:800">Prévia de “{{ p.arquivo }}”</h2>
+
+  {% if p.faltando %}
+    <div class="veredito veredito-pressa">
+      <div class="veredito-titulo">Faltam colunas obrigatórias</div>
+      <div class="veredito-texto">Não encontrei: <strong>{{ p.faltando|join(', ') }}</strong>. Renomeie as colunas da planilha (ou use o modelo) e envie de novo.</div>
+    </div>
+  {% else %}
+    <div class="cartoes-3">
+      <div class="cartao-num" style="background:#E3F3E0"><div class="val-grande cor-verde">{{ p.compras|length }}</div><div class="sub">compras prontas para importar</div></div>
+      <div class="cartao-num" style="background:{{ '#FDE7E5' if p.erros else '#F3F7EC' }}"><div class="val-grande {{ 'cor-vermelha' if p.erros }}">{{ p.erros|length }}</div><div class="sub">linhas com erro (não serão importadas)</div></div>
+      <div class="cartao-num" style="background:#F3F7EC"><div class="val-grande">{{ p.cotacoes|length }}</div><div class="sub">cotações (propostas) junto</div></div>
+    </div>
+  {% endif %}
+
+  <div><div style="font-size:13px;font-weight:700;color:#4F6153;margin-bottom:6px">Colunas reconhecidas</div>
+    <div class="colunas-reconhecidas">{% for campo, nome in p.reconhecidas.items() %}<span title="{{ campo }}">{{ nome }}</span>{% endfor %}
+      {% for nome in p.ignoradas %}<span class="ignorada" title="Coluna não usada pela JustPlan">{{ nome }} (ignorada)</span>{% endfor %}</div></div>
+
+  {% for a in p.avisos %}<div class="aviso">{{ a }}</div>{% endfor %}
+
+  {% if p.erros %}
+  <div class="veredito veredito-pressa">
+    <div class="veredito-titulo">Linhas com problema</div>
+    <ul class="lista-erros">{% for e in p.erros[:200] %}<li><strong>Linha {{ e.linha }}:</strong> {{ e.problemas|join('; ') }}</li>{% endfor %}</ul>
+    {% if p.erros|length > 200 %}<div>… e mais {{ p.erros|length - 200 }} linhas.</div>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if p.compras %}
+  <div class="tabela-previa"><table>
+    <thead><tr><th>Pedido</th><th>Data</th><th>Área</th><th>Item</th><th>Qtd</th><th>Fornecedor</th><th>Preço</th><th>Tipo</th><th>Cotações</th><th>Ref. planejada</th></tr></thead>
+    <tbody>{% for c in p.compras[:10] %}
+      <tr><td>{{ c.id_compra }}</td><td>{{ r.data_br(c.data_pedido) }}</td><td>{{ c.area_solicitante }}</td><td>{{ c.item }}</td>
+        <td>{{ r.quantidade(c.quantidade, c.unidade) }}</td><td>{{ c.fornecedor }}</td><td>{{ r.brl(c.preco_unit_final) }}</td>
+        <td><span class="tipo tipo-{{ c.tipo_compra }}">{{ c.tipo_compra }}</span></td><td>{{ c.qtd_cotacoes }}</td><td>{{ r.brl(c.preco_medio_planejado_item) }}</td></tr>
+    {% endfor %}</tbody></table></div>
+  {% if p.compras|length > 10 %}<div style="font-size:13px;color:#4F6153">Mostrando 10 de {{ p.compras|length }} compras.</div>{% endif %}
+  {% endif %}
+
+  <form method="post" action="{{ url_for('confirmar_importacao') }}" style="display:flex;flex-direction:column;gap:14px">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% if p.compras %}
+    <div class="modo-importacao">
+      <label><input type="radio" name="modo" value="adicionar" checked><span><strong>Adicionar</strong> às {{ n_base }} compras que já estão na base {{ base.nome }}</span></label>
+      {% if base_chave == 'natto' %}
+      <label><input type="radio" name="modo" value="substituir"><span><strong>Substituir tudo</strong>: apaga as {{ n_base }} compras, requisições e cotações da base Natto e deixa só as desta planilha</span></label>
+      {% endif %}
+    </div>
+    {% endif %}
+    <div style="display:flex;flex-wrap:wrap;gap:12px">
+      {% if p.compras %}<button class="botao botao-amarelo" name="acao" value="importar">Importar {{ p.compras|length }} compra{{ 's' if p.compras|length != 1 }} na base {{ base.nome }}</button>{% endif %}
+      <button class="botao-voltar" style="color:#0D5C2A;border-color:#CFE0C4;background:#fff" name="acao" value="cancelar">{{ 'Cancelar' if p.compras else 'Enviar outra planilha' }}</button>
+    </div>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

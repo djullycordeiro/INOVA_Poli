@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titulo %}Bases de dados{% endblock %}
+{% block conteudo %}
+<header class="cabecalho"><div class="titulo-tela">
+  <div class="passo">Área do gerente</div>
+  <h1>Bases de dados</h1>
+  <p class="descricao" style="max-width:720px">O site trabalha com uma base de cada vez. A base <strong>Pitch</strong> guarda as 200 compras fictícias da apresentação; a base <strong>Natto</strong> recebe os dados reais da validação. Usuários e convites valem para as duas.</p>
+</div></header>
+
+<div class="cartoes-2">
+  {% for b in bases %}
+  <section class="cartao-base {{ 'ativa' if b.chave == base_chave }}" aria-label="Base {{ b.nome }}">
+    {% if b.chave == base_chave %}<span class="etiqueta-ativa">Em uso agora</span>{% endif %}
+    <h2>{{ b.nome }}</h2>
+    <div style="color:#4F6153">{{ b.descricao|capitalize }}</div>
+    <div class="numeros">
+      <span><strong>{{ b.compras }}</strong> compras</span>
+      <span><strong>{{ b.requisicoes }}</strong> requisições</span>
+      {% if b.ultima %}<span>última compra em <strong style="font-size:15px">{{ r.data_br(b.ultima) }}</strong></span>{% endif %}
+    </div>
+    {% if b.chave != base_chave %}
+    <form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="base" value="{{ b.chave }}">
+      <button class="botao {{ 'botao-amarelo' if b.chave == 'natto' }}">Usar a base {{ b.nome }}</button></form>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+
+<div class="aviso" style="line-height:1.5">A troca vale <strong>para todos os usuários ao mesmo tempo</strong>. Antes da validação com a Natto, ative a base Natto; antes do pitch, volte para a Pitch. A base em uso aparece sempre na barra lateral.</div>
+{% endblock %}

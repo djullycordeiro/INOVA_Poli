@@ -9,7 +9,7 @@
   </div>
   <div class="pilulas">
     <span class="pilula">{{ 'Natto Alimentos · Suprimentos' if usuario.perfil == 'gerente' else usuario.area }}</span>
-    <span class="pilula">out/2025 a set/2026</span>
+    <span class="pilula">{{ periodo }}</span>
   </div>
 </header>
 
@@ -92,6 +92,9 @@
       {% elif a.veredito == 'cara' %}
         <div class="veredito-titulo">A proposta escolhida custou {{ r.brl(a.diferenca) }} a mais</div>
         <div class="veredito-texto">Olhando só o preço unitário ela parecia a melhor. Somando frete e prazo de pagamento, a proposta da {{ a.melhor.fornecedor }} saía mais barata.</div>
+      {% elif a.veredito in ('incompleta', 'sem_dados') %}
+        <div class="veredito-titulo">As propostas concorrentes não foram importadas</div>
+        <div class="veredito-texto">Esta compra teve {{ cp.qtd_cotacoes|int }} cotaç{{ 'ão' if cp.qtd_cotacoes == 1 else 'ões' }}, mas a planilha trouxe só a vencedora. Para comparar pelo custo de hoje, inclua as outras propostas na aba "cotacoes" da planilha de importação.</div>
       {% else %}
         <div class="veredito-titulo">Só 1 proposta: não houve com o que comparar</div>
         <div class="veredito-texto">Sem concorrência não dá para saber se o preço foi bom. Cotar pelo menos 3 fornecedores é a regra para a próxima compra.</div>

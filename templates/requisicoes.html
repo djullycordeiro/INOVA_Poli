@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block titulo %}Requisições{% endblock %}
+{% block conteudo %}
+<header class="cabecalho">
+  <div class="titulo-tela">
+    <div class="passo">Planejamento</div>
+    <h1>Requisições</h1>
+    <p class="descricao" style="max-width:700px">Peça a compra com antecedência: {{ 'aprove ou recuse os pedidos das áreas.' if usuario.perfil == 'gerente' else 'o gerente aprova e o pedido vira cotação.' }}</p>
+  </div>
+  <div class="pilulas"><span class="pilula">{{ 'Todas as áreas' if usuario.perfil == 'gerente' else usuario.area }}</span></div>
+</header>
+
+<section class="cartao" aria-label="Nova requisição">
+  <h2 style="margin:0 0 14px;font-size:20px;font-weight:800">Nova requisição</h2>
+  <form method="post" class="form-requisicao">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="campo largo">Item
+      <select name="item" required>
+        <option value="">Escolha o item…</option>
+        {% for cat in itens|groupby('categoria') %}
+        <optgroup label="{{ cat.grouper }}">
+          {% for i in cat.list %}<option value="{{ i.codigo_item }}" {{ 'selected' if form.get('item') == i.codigo_item }}>{{ i.item }}{% if i.prazo_medio %} · entrega ~{{ i.prazo_medio|int }} dias{% endif %}</option>{% endfor %}
+        </optgroup>
+        {% endfor %}
+      </select></label>
+    <label class="campo">Quantidade<input name="quantidade" inputmode="decimal" required value="{{ form.get('quantidade', '') }}"></label>
+    <label class="campo">Precisa chegar até<input type="date" name="data_necessaria" required min="{{ hoje.isoformat() }}" value="{{ form.get('data_necessaria', '') }}"></label>
+    {% if usuario.perfil == 'gerente' %}
+    <label class="campo largo">Área
+      <select name="area">{% for a in areas %}<option {{ 'selected' if form.get('area') == a }}>{{ a }}</option>{% endfor %}</select></label>
+    {% endif %}
+    <div class="campo {{ 'largo' if usuario.perfil == 'gerente' else 'largo' }}">Urgência
+      <div class="radio-urgencia">
+        {% for u in ('Planejada', 'Emergencial') %}
+        <label><input type="radio" name="urgencia" value="{{ u }}" {{ 'checked' if form.get('urgencia', 'Planejada') == u }}> {{ u }}</label>
+        {% endfor %}
+      </div></div>
+    <label class="campo inteiro">Justificativa (opcional)<textarea name="justificativa" placeholder="Ex.: reposição mensal da linha de cortes">{{ form.get('justificativa', '') }}</textarea></label>
+
+    {% if aviso %}
+    <div class="aviso-prazo inteiro" role="alert">
+      <div><strong>{{ aviso.item }} costuma levar {{ aviso.prazo }} dias para chegar.</strong> Com a data escolhida ({{ aviso.dias }} dia{{ 's' if aviso.dias != 1 }} a partir de hoje), não dá tempo de comprar planejado: a compra vai sair <strong>emergencial</strong>, provavelmente mais cara e com menos cotações.</div>
+      <div class="acoes">
+        <button class="botao-peq botao-recusar" name="confirmado" value="1">Criar mesmo assim, como emergencial</button>
+        <span style="font-size:14px;align-self:center">ou mude a data acima e envie de novo.</span>
+      </div>
+    </div>
+    {% endif %}
+    <div class="inteiro"><button class="botao">Criar requisição</button></div>
+  </form>
+</section>
+
+<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+  <h2 class="subtitulo-serif" style="margin:0">Pedidos</h2>
+  <form class="filtro-select" method="get" action="{{ url_for('requisicoes') }}" style="min-width:260px">
+    <label for="status">Mostrar</label>
+    <select id="status" name="status" onchange="this.form.submit()">
+      {% for chave, rotulo in filtros %}<option value="{{ chave }}" {{ 'selected' if chave == filtro }}>{{ rotulo }} ({{ contagem[chave] }})</option>{% endfor %}
+    </select>
+    <noscript><button class="botao">Filtrar</button></noscript>
+  </form>
+</div>
+
+<section class="lista-req" aria-label="Lista de requisições">
+  {% for x in lista %}
+  <article class="req">
+    <div class="req-principal">
+      <div class="req-topo">
+        <span>REQ-{{ '%04d' % x.id }} · {{ x.area }}</span>
+        <span class="status status-{{ x.status }}">{{ {'aberta': 'Aguardando aprovação', 'aprovada': 'Aprovada', 'recusada': 'Recusada', 'concluida': 'Concluída'}[x.status] }}</span>
+        {% if x.tipo == 'estoque_minimo' %}<span class="tipo tipo-Planejada">Estoque mínimo</span>
+        {% else %}<span class="tipo tipo-{{ x.urgencia }}">{{ x.urgencia }}</span>{% endif %}
+      </div>
+      <div class="req-item">{{ x.titulo }}</div>
+      <div class="req-info">
+        {% if x.quantidade %}{{ r.quantidade(x.quantidade, unidades.get(x.itens, '')) }} · {% endif %}
+        {% if x.data_necessaria %}precisa chegar até {{ r.data_br(x.data_necessaria) }} · {% endif %}
+        {% if x.data_limite %}pedir até {{ r.data_br(x.data_limite) }} · {% endif %}
+        criada por {{ x.autor }} em {{ r.data_br(x.criado_em) }}{% if x.chave.startswith('planejada:') or x.chave.startswith('estoque:') %} · sugerida pelo Radar{% endif %}
+      </div>
+      {% if x.justificativa %}<div class="req-just">“{{ x.justificativa }}”</div>{% endif %}
+    </div>
+    <div class="req-lado">
+      {% if x.status == 'aberta' and usuario.perfil == 'gerente' %}
+        <form method="post" action="{{ url_for('decidir_requisicao', id=x.id) }}" class="decisao">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="voltar" value="{{ filtro }}">
+          <button class="botao-peq botao-aprovar" name="acao" value="aprovar">Aprovar</button>
+          <span class="recusa">
+            <input name="motivo" placeholder="Motivo, se for recusar" aria-label="Motivo da recusa">
+            <button class="botao-peq botao-recusar" name="acao" value="recusar">Recusar</button>
+          </span>
+        </form>
+      {% elif x.status == 'aberta' %}
+        <span class="req-info">Aguardando o gerente.</span>
+      {% elif x.decidiu %}
+        <span class="req-info">{{ 'Aprovada' if x.status in ('aprovada', 'concluida') else 'Recusada' }} por {{ x.decidiu }} em {{ r.data_br(x.decidido_em) }}</span>
+        {% if x.motivo_recusa %}<span class="req-just">Motivo: “{{ x.motivo_recusa }}”</span>{% endif %}
+        {% if x.tipo == 'planejada' and x.status in ('aprovada', 'concluida') %}
+        <a class="botao-peq botao-aprovar" style="text-decoration:none;display:inline-flex;align-items:center"
+           href="{{ url_for('cotar_requisicao', id=x.id) }}">{{ 'Lançar cotações' if x.status == 'aprovada' else 'Ver cotações' }}{% if x.n_propostas %} ({{ x.n_propostas }}){% endif %} →</a>
+        {% endif %}
+      {% endif %}
+    </div>
+  </article>
+  {% else %}
+  <div class="vazio">Nenhuma requisição {{ 'neste filtro' if filtro != 'todas' else 'ainda' }}.</div>
+  {% endfor %}
+</section>
+{% endblock %}
