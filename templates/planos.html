@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block titulo %}Planos{% endblock %}
+{% block conteudo %}
+<header class="cabecalho">
+  <div class="titulo-tela">
+    <div class="passo">Passo 6 de 6</div>
+    <h1>Planos</h1>
+    <p class="descricao" style="max-width:700px">Mensalidade base + {{ (r.TAXA_SUCESSO * 100)|int }}% da economia comprovada. A JustPlan só ganha mais quando a Natto economiza.</p>
+  </div>
+  <div class="pilulas"><span class="pilula">Modelo híbrido</span></div>
+</header>
+
+<section class="cartoes-2" aria-label="Como cobramos">
+  <div class="preco">
+    <div class="rot">Mensalidade base</div>
+    <div class="val">{{ r.reais(r.MENSALIDADE) }}<small>/mês</small></div>
+    <div class="txt">A plataforma completa: cotações lidas por IA, Nota da Compra, Histórico de preços, Savings e Radar de Emergenciais, com implantação e suporte.</div>
+  </div>
+  <div class="preco amarelo">
+    <div class="rot">Taxa de sucesso</div>
+    <div class="val">+ {{ (r.TAXA_SUCESSO * 100)|int }}%<small> da economia comprovada</small></div>
+    <div class="txt">Cobrada só sobre o que a plataforma comprova: (preço de referência − preço pago) × quantidade, auditável na tela Savings.</div>
+  </div>
+</section>
+
+<section class="simulador" aria-label="Simulador de retorno" id="simulador">
+  <h2>Simule o retorno</h2>
+  <div class="escolha">
+    <div class="rot">Gasto anual com compras</div>
+    <div class="opcoes">{% for v in r.OPCOES_GASTO %}<a class="opcao {{ 'ativo' if v == gasto }}" href="{{ url_for('planos', gasto=v, eco=eco) }}#simulador">R$ {{ v }} mi</a>{% endfor %}</div>
+  </div>
+  <div class="escolha">
+    <div class="rot">Economia gerada pela JustPlan</div>
+    <div class="opcoes">{% for v in r.OPCOES_ECONOMIA %}<a class="opcao {{ 'ativo' if v == eco }}" href="{{ url_for('planos', gasto=gasto, eco=v) }}#simulador">{{ v }}%</a>{% endfor %}</div>
+  </div>
+  <div class="cartoes-4">
+    <div class="resultado"><div class="rot">Economia no ano</div><div class="val">{{ r.reais(sim.economia) }}</div></div>
+    <div class="resultado"><div class="rot">JustPlan recebe</div><div class="val">{{ r.reais(sim.justplan) }}</div><div class="sub">{{ r.reais(sim.mensalidades) }} de mensalidade + {{ (r.TAXA_SUCESSO * 100)|int }}%</div></div>
+    <div class="resultado verde"><div class="rot">A Natto fica com</div><div class="val">{{ r.reais(sim.cliente) }}</div></div>
+    <div class="resultado amarelo"><div class="rot">Retorno</div><div class="val">{{ r.brl(sim.retorno) }}</div><div class="sub">de economia por R$ 1 pago</div></div>
+  </div>
+  <div class="nota-simulador">Simulação ilustrativa. O cenário padrão (2% de economia) é conservador: segundo a Bain &amp; Company, governança de compras costuma capturar de 8% a 12% de redução.</div>
+</section>
+
+<section class="passos-cobranca" aria-label="Como funciona a cobrança">
+  <div class="passo-cobranca"><div class="n">1</div><div class="t">Implantação</div><div class="d">Importamos o histórico de compras e definimos o preço de referência de cada item.</div></div>
+  <div class="passo-cobranca"><div class="n">2</div><div class="t">Uso no dia a dia</div><div class="d">Cada compra ganha nota, o Radar avisa antes das emergências e a mensalidade cobre tudo.</div></div>
+  <div class="passo-cobranca"><div class="n">3</div><div class="t">Fechamento do mês</div><div class="d">A economia comprovada aparece no Savings e os {{ (r.TAXA_SUCESSO * 100)|int }}% são calculados só sobre ela.</div></div>
+</section>
+
+<div class="rodape-tela entre">
+  <a class="botao-voltar" href="{{ url_for('radar') }}">← Radar de Emergenciais</a>
+  <a class="botao-proximo" href="{{ url_for('cotacoes') }}">Voltar ao início</a>
+</div>
+{% endblock %}

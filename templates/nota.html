@@ -80,7 +80,20 @@
     <div class="dica">
       <div class="rot">Para a próxima compra</div>
       <div class="txt">{{ sel.dica }}</div>
-      <a class="botao-branco" href="{{ url_for('tela', nome='historico') }}?item={{ cp.codigo_item }}">Ver o histórico de preço deste item →</a>
+      <a class="botao-branco" href="{{ url_for('historico', item=cp.codigo_item) }}">Ver o histórico de preço deste item →</a>
+    </div>
+
+    <div class="editar-linha">
+      <a class="botao-voltar" style="color:#0D5C2A;border-color:#CFE0C4" href="{{ url_for('editar_compra', id_compra=cp.id_compra) }}">✎ Editar compra</a>
+      {% if alteracoes %}
+      <details class="historico-alt">
+        <summary>Alterada {{ alteracoes|map(attribute='alterado_em')|unique|list|length }} vez{{ 'es' if (alteracoes|map(attribute='alterado_em')|unique|list|length) != 1 }} · ver histórico</summary>
+        <ul>{% for a in alteracoes %}
+          <li><strong>{{ campos[a.campo][0] if a.campo in campos else a.campo }}:</strong> {{ a.antes }} → {{ a.depois }}
+            <span>· {{ a.autor or 'usuário removido' }} em {{ r.data_br(a.alterado_em) }} · motivo: “{{ a.motivo }}”</span></li>
+        {% endfor %}</ul>
+      </details>
+      {% endif %}
     </div>
 
     <div class="como-calcula">Como a nota é calculada: começa em 100. Preço mais de 10% acima do histórico −40 (de 3% a 10%: −15) · proposta mais barata ignorada −30 · só 1 cotação −20 (2 cotações: −5) · compra emergencial −15 · fora do orçamento −5. Verde a partir de 75, amarela de 50 a 74, vermelha abaixo de 50.</div>
@@ -90,6 +103,6 @@
 
 <div class="rodape-tela entre">
   <a class="botao-voltar" href="{{ url_for('cotacoes') }}">← Cotações</a>
-  <a class="botao-proximo" href="{{ url_for('tela', nome='historico') }}">Próximo: Histórico de preços →</a>
+  <a class="botao-proximo" href="{{ url_for('historico') }}">Próximo: Histórico de preços →</a>
 </div>
 {% endblock %}

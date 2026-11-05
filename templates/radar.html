@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block titulo %}Radar de Emergenciais{% endblock %}
+{% block conteudo %}{% set n = rd.numeros %}
+<header class="cabecalho">
+  <div class="titulo-tela">
+    <div class="passo">Passo 5 de 6</div>
+    <h1>Radar de Emergenciais</h1>
+    <p class="descricao" style="max-width:700px">Quais compras emergenciais dava para ter planejado? O Radar cruza histórico de compras, consumo e comportamento das áreas.</p>
+  </div>
+  <div class="pilulas">
+    <span class="pilula">{{ 'Natto Alimentos · Suprimentos' if usuario.perfil == 'gerente' else usuario.area }}</span>
+    <span class="pilula">{{ periodo }}</span>
+  </div>
+</header>
+
+<section class="cartoes-4" aria-label="Números das emergenciais">
+  <div class="cartao-num"><div class="val-grande">{{ n.n }}</div><div class="sub">compras emergenciais · {{ r.pct(n.pct) }} dos pedidos</div></div>
+  <div class="cartao-num vermelho"><div class="val-grande">{{ r.brl(n.perda) }}</div><div class="sub">pagos a mais por causa da pressa</div></div>
+  <div class="cartao-num"><div class="val-grande">{{ n.um_fornecedor }} de {{ n.n }}</div><div class="sub">com só 1 fornecedor cotado</div></div>
+  <div class="cartao-num"><div class="val-grande">{{ n.fora_orcamento }} de {{ n.n }}</div><div class="sub">fora do orçamento</div></div>
+</section>
+
+<h2 class="subtitulo-serif">{{ rd.alertas|length }} alerta{{ 's' if rd.alertas|length != 1 }} ativo{{ 's' if rd.alertas|length != 1 }}</h2>
+
+{% for a in rd.alertas %}
+<section class="alerta" aria-label="Alerta de {{ a.tipo|lower }}">
+  <div class="alerta-texto">
+    <span class="etiqueta-tipo">{{ a.tipo }}</span>
+    <div class="alerta-titulo">{{ a.titulo }}</div>
+    <div class="alerta-desc">{{ a.texto }}</div>
+  </div>
+  <div class="alerta-grafico">
+    {% if a.grafico == 'meses' %}
+      <div class="grade-12">{% for m in a.meses %}<span class="mes-celula n{{ [m.n, 2]|min }}" title="{{ m.nome }}: {{ m.n }} emergencial(is)">{{ m.n or '' }}</span>{% endfor %}</div>
+      <div class="meses-peq" aria-hidden="true">{% for m in a.meses %}<span>{{ m.nome }}</span>{% endfor %}</div>
+      <div class="legenda-peq">Número de compras emergenciais da categoria por mês</div>
+    {% elif a.grafico == 'areas' %}
+      {% for ar in a.areas %}
+      <div class="barra-area"><span style="font-weight:600">{{ ar.nome }}</span>
+        <span class="trilho"><span class="enchimento {{ 'alta' if ar.alta }}" style="width: {{ ar.largura }}%"></span></span>
+        <span class="valor">{{ ar.pct }}</span></div>
+      {% endfor %}
+      <div class="legenda-peq">% de pedidos emergenciais por área · mediana {{ a.mediana }}</div>
+    {% else %}
+      <div class="linha-tempo">{% for p in a.pontos %}<span class="ponto {{ 'ponto-e' if p.emergencial else 'ponto-p' }}" style="left: {{ p.x }}%" title="{{ p.rotulo }}"></span>{% endfor %}</div>
+      <div class="meses-peq" aria-hidden="true">{% for m in r.MESES %}<span>{{ m }}</span>{% endfor %}</div>
+      <div class="legenda-peq">Cada ponto é uma compra: verde = planejada, vermelho = emergencial</div>
+    {% endif %}
+  </div>
+</section>
+{% else %}
+<div class="sem-alertas">Nenhum alerta ativo{{ ' na sua área' if usuario.perfil != 'gerente' }}: as compras emergenciais não formam um padrão recorrente. Continue planejando.</div>
+{% endfor %}
+
+{% if rd.prevencao %}
+<h2 class="subtitulo-serif" id="antes">Antes que aconteça de novo</h2>
+<section class="cartoes-prev" aria-label="Alertas preventivos">
+  {% for v in rd.prevencao %}{% set feita = feitas.get(v.chave) %}
+  <div class="cartao-prev">
+    <span class="tag">{{ v.tag }}</span>
+    <div class="tit">{{ v.titulo }}</div>
+    <div class="txt">{{ v.texto }}</div>
+    {% if feita %}
+      <div class="feito">{{ 'Requisição planejada criada' if feita.tipo == 'planejada' else 'Estoque mínimo registrado' }} por {{ feita.autor }} em {{ r.data_br(feita.criado_em) }}</div>
+    {% else %}
+      <form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="chave" value="{{ v.chave }}"><button>{{ v.acao }}</button></form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<div class="rodape-tela entre">
+  <a class="botao-voltar" href="{{ url_for('savings') }}">← Savings</a>
+  <a class="botao-proximo" href="{{ url_for('planos') }}">Próximo: Planos →</a>
+</div>
+{% endblock %}
