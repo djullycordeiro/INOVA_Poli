@@ -308,7 +308,14 @@ def nota():
     if sel is None:
         # Sem compra escolhida: abre na vermelha mais recente da lista (a lista já vem da mais nova para a mais antiga)
         sel = next((x for x in visiveis if x["cor"] == "r"), visiveis[0] if visiveis else None)
+    historico_alteracoes = []
+    if sel:
+        with banco.conectar() as c:
+            historico_alteracoes = c.execute(
+                "SELECT a.*, u.nome AS autor FROM alteracoes a LEFT JOIN usuarios u ON u.id = a.alterado_por "
+                "WHERE a.id_compra = ? ORDER BY a.alterado_em DESC, a.id DESC", (sel["compra"]["id_compra"],)).fetchall()
     return render_template("nota.html", lista=visiveis, sel=sel, resumo=resumo, filtro=filtro,
+                           alteracoes=historico_alteracoes, campos=regras.CAMPOS_EDITAVEIS,
                            filtros=FILTROS_NOTA, contagem=contagem, cores=regras.CORES_NOTA, r=regras)
 
 
@@ -741,6 +748,81 @@ def modelo_importacao():
     return Response(importacao.planilha_modelo(),
                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": "attachment; filename=justplan_modelo_importacao.xlsx"})
+
+
+# ---------------------------------------------------------------------------
+# 4.7 Editar compra (com histórico de alterações)
+# ---------------------------------------------------------------------------
+def compra_permitida(id_compra, u):
+    with banco.conectar() as c:
+        compra = c.execute("SELECT * FROM compras WHERE id_compra = ?", (id_compra,)).fetchone()
+    if compra is None:
+        abort(404)
+    if u["perfil"] != "gerente" and compra["area_solicitante"] != u["area"]:
+        abort(403)
+    return compra
+
+
+@app.route("/compras/<id_compra>/editar", methods=["GET", "POST"])
+@login_obrigatorio
+def editar_compra(id_compra):
+    u = usuario_atual()
+    compra = compra_permitida(id_compra, u)
+    form = request.form if request.method == "POST" else {}
+
+    if request.method == "POST":
+        motivo = request.form.get("motivo", "").strip()
+        novo, erros = dict(compra), []
+        for campo, (rotulo, tipo) in regras.CAMPOS_EDITAVEIS.items():
+            bruto = request.form.get(campo, "").strip()
+            if tipo == "texto":
+                novo[campo] = bruto or None
+            elif tipo == "tipo":
+                novo[campo] = bruto if bruto in ("Planejada", "Emergencial") else compra[campo]
+            elif tipo == "simnao":
+                novo[campo] = bruto if bruto in ("Sim", "Não") else compra[campo]
+            else:
+                valor = _numero_do_form(campo, inteiro=(tipo == "inteiro"))
+                if valor is None:
+                    erros.append(f"{rotulo}: valor inválido")
+                novo[campo] = valor
+        if not novo["fornecedor"]:
+            erros.append("Fornecedor não pode ficar vazio")
+        if not novo["quantidade"] or not novo["preco_unit_final"]:
+            erros.append("Quantidade e preço final precisam ser maiores que zero")
+        if novo["qtd_cotacoes"] is not None and novo["qtd_cotacoes"] < 1:
+            erros.append("Precisa ter pelo menos 1 fornecedor cotado")
+        if not motivo:
+            erros.append("Escreva o motivo da alteração")
+        mudou = [c for c in regras.CAMPOS_EDITAVEIS
+                 if regras.valor_legivel(c, novo[c]) != regras.valor_legivel(c, compra[c])]
+        if not erros and not mudou:
+            erros.append("Nenhum campo foi alterado")
+        if erros:
+            for e in erros:
+                flash(e)
+        else:
+            regras.recalcular_compra(novo)
+            colunas = [c for c in novo if c != "id_compra"]
+            with banco.conectar() as c:
+                c.execute(f"UPDATE compras SET {', '.join(f'{k} = ?' for k in colunas)} WHERE id_compra = ?",
+                          [novo[k] for k in colunas] + [id_compra])
+                for campo in mudou:
+                    c.execute("INSERT INTO alteracoes (id_compra, campo, antes, depois, motivo, alterado_por) "
+                              "VALUES (?, ?, ?, ?, ?, ?)",
+                              (id_compra, campo, regras.valor_legivel(campo, compra[campo]),
+                               regras.valor_legivel(campo, novo[campo]), motivo, u["id"]))
+                # Mantém a cotação vencedora coerente com a compra (a tela de Cotações lê dela)
+                c.execute("""UPDATE cotacoes SET fornecedor = ?, preco_unit = ?, quantidade = ?, valor_itens = ?, frete = ?,
+                             custo_total = ?, prazo_pagamento_dias = ?, custo_total_hoje = ?, prazo_entrega_dias = ?
+                             WHERE id_compra = ? AND vencedora = 'Sim'""",
+                          (novo["fornecedor"], novo["preco_unit_final"], novo["quantidade"], novo["valor_itens"],
+                           novo["frete"], novo["custo_total"], novo["prazo_pagamento_dias"], novo["custo_total_hoje"],
+                           novo["prazo_entrega_dias"], id_compra))
+            flash(f"Compra {id_compra} alterada ({len(mudou)} campo{'s' if len(mudou) != 1 else ''}). A nota foi recalculada.")
+            return redirect(url_for("nota", sel=id_compra))
+
+    return render_template("editar_compra.html", compra=compra, form=form, campos=regras.CAMPOS_EDITAVEIS, r=regras)
 
 
 # ---------------------------------------------------------------------------

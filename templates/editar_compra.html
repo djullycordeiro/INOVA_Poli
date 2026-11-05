@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block titulo %}Editar {{ compra.id_compra }}{% endblock %}
+{% block conteudo %}{% set cp = compra %}
+<header class="cabecalho"><div class="titulo-tela">
+  <div class="passo">{{ cp.id_compra }} · {{ cp.area_solicitante }} · {{ r.data_br(cp.data_pedido) }}</div>
+  <h1>Editar compra</h1>
+  <p class="descricao" style="max-width:720px">{{ cp.item }}. Corrija o que estiver errado: custo, economia e nota são recalculados, e cada mudança fica registrada com o motivo.</p>
+</div></header>
+
+<section class="cartao">
+  <form method="post" class="form-edicao">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% for campo, (rotulo, tipo) in campos.items() %}{% set atual = form.get(campo) if form else cp[campo] %}
+      {% if tipo == 'tipo' %}
+        <label class="campo">{{ rotulo }}<select name="{{ campo }}">{% for o in ('Planejada', 'Emergencial') %}<option {{ 'selected' if atual == o }}>{{ o }}</option>{% endfor %}</select></label>
+      {% elif tipo == 'simnao' %}
+        <label class="campo">{{ rotulo }}<select name="{{ campo }}">{% for o in ('Sim', 'Não') %}<option {{ 'selected' if atual == o }}>{{ o }}</option>{% endfor %}</select></label>
+      {% elif tipo == 'texto' %}
+        <label class="campo {{ 'inteiro' if campo == 'motivo_emergencia' }}">{{ rotulo }}<input name="{{ campo }}" value="{{ atual or '' }}"></label>
+      {% else %}
+        <label class="campo">{{ rotulo }}<input name="{{ campo }}" inputmode="decimal"
+          value="{{ (atual if form else (r.numero(atual) if atual is not none else '')) }}"></label>
+      {% endif %}
+    {% endfor %}
+    <label class="campo inteiro">Motivo da alteração (obrigatório)<input name="motivo" required placeholder="Ex.: preço digitado errado" value="{{ form.get('motivo', '') if form else '' }}"></label>
+    <div class="inteiro" style="display:flex;flex-wrap:wrap;gap:12px">
+      <button class="botao botao-amarelo">Salvar alteração</button>
+      <a class="botao-voltar" style="color:#0D5C2A;border-color:#CFE0C4;background:#fff" href="{{ url_for('nota', sel=cp.id_compra) }}">Cancelar</a>
+    </div>
+  </form>
+</section>
+<p class="descricao" style="font-size:14px">Número do pedido, data, área e item não mudam: eles identificam a compra. O preço médio planejado do item ({{ r.brl(cp.preco_medio_planejado_item) }}) continua o mesmo.</p>
+{% endblock %}

@@ -736,3 +736,51 @@ def montar_compra(id_compra, requisicao, item, propostas, vencedora_id, preco_fi
     for c in cotacoes:
         c["melhor_custo_hoje"] = "Sim" if c["custo_total_hoje"] == menor else "Não"
     return compra, cotacoes
+
+
+# ---------------------------------------------------------------------------
+# Editar compra: campos que podem mudar e recálculo dos campos derivados
+# ---------------------------------------------------------------------------
+CAMPOS_EDITAVEIS = {   # campo: (rótulo, tipo)
+    "fornecedor": ("Fornecedor", "texto"),
+    "quantidade": ("Quantidade", "numero"),
+    "preco_unit_inicial": ("Preço da 1ª proposta (antes de negociar)", "numero"),
+    "preco_unit_final": ("Preço final pago (unidade)", "numero"),
+    "frete": ("Frete", "numero"),
+    "prazo_pagamento_dias": ("Prazo de pagamento (dias)", "inteiro"),
+    "prazo_entrega_dias": ("Prazo de entrega (dias)", "inteiro"),
+    "qtd_cotacoes": ("Fornecedores cotados", "inteiro"),
+    "tipo_compra": ("Tipo", "tipo"),
+    "previsto_no_orcamento": ("Estava no orçamento?", "simnao"),
+    "motivo_emergencia": ("Motivo da emergência", "texto"),
+}
+
+
+def recalcular_compra(c):
+    """Recebe a compra (dict) já com os valores novos e refaz os campos calculados."""
+    valor_itens = c["preco_unit_final"] * c["quantidade"]
+    custo_total = valor_itens + (c["frete"] or 0)
+    ref = c["preco_medio_planejado_item"]
+    c["valor_itens"] = round(valor_itens, 2)
+    c["custo_total"] = round(custo_total, 2)
+    c["custo_total_hoje"] = round(custo_de_hoje(custo_total, c["prazo_pagamento_dias"]), 2)
+    c["saving_negociacao"] = round(max((c["preco_unit_inicial"] or c["preco_unit_final"]) - c["preco_unit_final"], 0)
+                                   * c["quantidade"], 2)
+    c["pago_a_mais_vs_planejado"] = (round(max(c["preco_unit_final"] - ref, 0) * c["quantidade"], 2)
+                                     if ref and c["tipo_compra"] == "Emergencial" else 0)
+    if c["tipo_compra"] != "Emergencial":
+        c["motivo_emergencia"] = None
+    return c
+
+
+def valor_legivel(campo, valor):
+    """Como mostrar o valor no histórico de alterações."""
+    if valor in (None, ""):
+        return "—"
+    if campo in ("preco_unit_inicial", "preco_unit_final", "frete"):
+        return brl(float(valor))
+    if campo in ("quantidade",):
+        return numero(float(valor))
+    if campo in ("prazo_pagamento_dias", "prazo_entrega_dias", "qtd_cotacoes"):
+        return str(int(float(valor)))
+    return str(valor)

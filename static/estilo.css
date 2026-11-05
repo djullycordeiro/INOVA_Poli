@@ -411,3 +411,14 @@ form.escolha-item { justify-content: flex-start; max-width: 620px; }
 .modo-importacao label { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; padding: 10px 12px; border: 2px solid #CFE0C4; border-radius: 12px; cursor: pointer; }
 .modo-importacao label:has(input:checked) { border-color: var(--verde-botao); background: #F3F7EC; }
 .modo-importacao input { accent-color: var(--verde-botao); margin-top: 3px; }
+
+/* ---------- 4.7 Editar compra ---------- */
+.editar-linha { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.historico-alt { flex: 1 1 320px; background: #FFF6E0; border: 1px solid #F0D58C; border-radius: 12px; padding: 10px 14px; font-size: 14px; }
+.historico-alt summary { cursor: pointer; font-weight: 700; color: #5C4100; min-height: 24px; }
+.historico-alt ul { margin: 8px 0 0; padding-left: 18px; line-height: 1.6; }
+.historico-alt li span { color: var(--texto-suave); }
+.form-edicao { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.form-edicao .inteiro { grid-column: 1 / -1; }
+@media (max-width: 900px) { .form-edicao { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) { .form-edicao { grid-template-columns: 1fr; } }
