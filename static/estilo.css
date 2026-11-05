@@ -394,3 +394,20 @@ form.escolha-item { justify-content: flex-start; max-width: 620px; }
 .cartao-base .numeros { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 15px; color: var(--texto-suave); }
 .cartao-base .numeros strong { color: var(--texto); font-size: 20px; }
 .etiqueta-ativa { align-self: flex-start; background: var(--amarelo); color: #3A2E00; font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.06em; }
+.veredito-incompleta, .veredito-sem_dados { background: #F3F7EC; border-color: #CFE0C4; color: #10271A; }
+
+/* ---------- 4.6 Importar compras ---------- */
+.envio { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; }
+.envio input[type=file] { padding: 10px; border: 2px dashed #9CC79F; border-radius: 12px; background: #F7FAF3; font-size: 15px; min-height: 44px; }
+.lista-erros { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.6; max-height: 260px; overflow-y: auto; }
+.colunas-reconhecidas { display: flex; flex-wrap: wrap; gap: 6px; }
+.colunas-reconhecidas span { background: #E3F3E0; color: #1C6B33; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.colunas-reconhecidas span.ignorada { background: #EEF3E8; color: var(--texto-suave); }
+.tabela-previa { overflow-x: auto; border: 1px solid #E1EAD8; border-radius: 12px; }
+.tabela-previa table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
+.tabela-previa th { background: #EEF6F0; text-align: left; padding: 8px 10px; white-space: nowrap; }
+.tabela-previa td { padding: 8px 10px; border-top: 1px solid #E1EAD8; white-space: nowrap; }
+.modo-importacao { display: flex; flex-direction: column; gap: 8px; }
+.modo-importacao label { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; padding: 10px 12px; border: 2px solid #CFE0C4; border-radius: 12px; cursor: pointer; }
+.modo-importacao label:has(input:checked) { border-color: var(--verde-botao); background: #F3F7EC; }
+.modo-importacao input { accent-color: var(--verde-botao); margin-top: 3px; }

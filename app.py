@@ -5,13 +5,18 @@ Para rodar:
     python app.py      -> abre em http://localhost:5000
 """
 
+import json
+import re
 import secrets
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
-from flask import Flask, abort, flash, g, redirect, render_template, request, session, url_for
+from flask import (Flask, Response, abort, flash, g, redirect, render_template, request, session,
+                   url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import banco
+import importacao
 import regras
 from seguranca import (configurar, filtro_area, limpar_erros_login, login_bloqueado,
                        login_obrigatorio, novo_codigo_convite, registrar_erro_login,
@@ -19,6 +24,8 @@ from seguranca import (configurar, filtro_area, limpar_erros_login, login_bloque
 
 app = Flask(__name__)
 configurar(app)
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024   # planilhas de até 10 MB
+PASTA_UPLOADS = Path(__file__).parent / "uploads"   # está no .gitignore: dados reais nunca vão pro GitHub
 banco.garantir_tabelas()
 
 VALIDADE_CONVITE_DIAS = 7
@@ -648,6 +655,92 @@ def bases():
             ultima = c.execute("SELECT MAX(data_pedido) FROM compras").fetchone()[0]
         resumo.append({"chave": chave, **info, "compras": n, "requisicoes": r, "ultima": ultima})
     return render_template("bases.html", bases=resumo, r=regras)
+
+
+# ---------------------------------------------------------------------------
+# 4.6 Importar compras por planilha — só gerente
+# ---------------------------------------------------------------------------
+def _arquivo_previa():
+    token = session.get("importacao")
+    if not token or not re.fullmatch(r"[0-9a-f]{32}", token):
+        return None
+    return PASTA_UPLOADS / f"importacao_{token}.json"
+
+
+@app.route("/importar", methods=["GET", "POST"])
+@so_gerente
+def importar():
+    if request.method == "POST":
+        arquivo = request.files.get("planilha")
+        if not arquivo or not arquivo.filename:
+            flash("Escolha uma planilha .xlsx ou .csv.")
+            return redirect(url_for("importar"))
+        try:
+            abas = importacao.ler_planilha(arquivo.read(), arquivo.filename)
+        except ValueError as erro:
+            flash(str(erro))
+            return redirect(url_for("importar"))
+        except Exception:
+            flash("Não consegui abrir esse arquivo. Confira se é uma planilha .xlsx ou .csv válida.")
+            return redirect(url_for("importar"))
+        with banco.conectar() as c:
+            existentes = c.execute("SELECT * FROM compras").fetchall()
+            ultimo = c.execute("SELECT MAX(CAST(SUBSTR(id_compra, 4) AS INTEGER)) FROM compras "
+                               "WHERE id_compra LIKE 'PC-%'").fetchone()[0] or 1000
+        previa = importacao.preparar(abas, existentes, ultimo)
+        previa["arquivo"] = arquivo.filename
+        PASTA_UPLOADS.mkdir(exist_ok=True)
+        antigo = _arquivo_previa()
+        if antigo and antigo.exists():
+            antigo.unlink()
+        session["importacao"] = secrets.token_hex(16)
+        _arquivo_previa().write_text(json.dumps(previa, ensure_ascii=False))
+        return redirect(url_for("importar"))
+
+    caminho = _arquivo_previa()
+    previa = json.loads(caminho.read_text()) if caminho and caminho.exists() else None
+    with banco.conectar() as c:
+        n_base = c.execute("SELECT COUNT(*) FROM compras").fetchone()[0]
+    return render_template("importar.html", previa=previa, n_base=n_base, colunas=importacao.COLUNAS_COMPRA, r=regras)
+
+
+@app.route("/importar/confirmar", methods=["POST"])
+@so_gerente
+def confirmar_importacao():
+    caminho = _arquivo_previa()
+    if not caminho or not caminho.exists():
+        flash("A prévia expirou. Envie a planilha de novo.")
+        return redirect(url_for("importar"))
+    previa = json.loads(caminho.read_text())
+    if request.form.get("acao") == "cancelar" or not previa["compras"]:
+        caminho.unlink()
+        session.pop("importacao", None)
+        flash("Importação cancelada. Nada foi gravado.")
+        return redirect(url_for("importar"))
+    substituir = request.form.get("modo") == "substituir"
+    if substituir and g.base != "natto":
+        flash("Substituir tudo só é permitido na base Natto. Para a base Pitch, use 'python banco.py limpar-demo'.")
+        return redirect(url_for("importar"))
+    with banco.conectar() as c:
+        if substituir:
+            banco.apagar_movimento(c, so_do_site=False)
+        for compra in previa["compras"]:
+            c.execute(f"INSERT INTO compras ({', '.join(compra)}) VALUES ({', '.join('?' * len(compra))})", list(compra.values()))
+        for cot in previa["cotacoes"]:
+            c.execute(f"INSERT INTO cotacoes ({', '.join(cot)}) VALUES ({', '.join('?' * len(cot))})", list(cot.values()))
+    caminho.unlink()
+    session.pop("importacao", None)
+    flash(f"{len(previa['compras'])} compra(s) importada(s) na base {banco.BASES[g.base]['nome']}."
+          + (" As compras anteriores desta base foram substituídas." if substituir else ""))
+    return redirect(url_for("nota"))
+
+
+@app.route("/importar/modelo.xlsx")
+@login_obrigatorio
+def modelo_importacao():
+    return Response(importacao.planilha_modelo(),
+                    mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": "attachment; filename=justplan_modelo_importacao.xlsx"})
 
 
 # ---------------------------------------------------------------------------

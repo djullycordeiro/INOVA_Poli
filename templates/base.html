@@ -32,6 +32,9 @@
       <a href="{{ url_for('bases') }}" {% if request.endpoint == 'bases' %}aria-current="page"{% endif %}>
         <span class="num">⇄</span><span class="rotulo">Bases de dados</span>
       </a>
+      <a href="{{ url_for('importar') }}" {% if request.endpoint == 'importar' %}aria-current="page"{% endif %}>
+        <span class="num">↑</span><span class="rotulo">Importar compras</span>
+      </a>
       <a href="{{ url_for('convites') }}" {% if request.endpoint == 'convites' %}aria-current="page"{% endif %}>
         <span class="num">✉</span><span class="rotulo">Convites</span>
       </a>

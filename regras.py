@@ -82,13 +82,17 @@ def analisar_cotacao(compra, propostas):
             "escolhida": p["vencedora"] == "Sim",
         })
 
+    if not linhas:   # compra importada sem o detalhe das cotações
+        return {"propostas": [], "melhor": None, "escolhida": None, "diferenca": 0, "veredito": "sem_dados"}
     melhor = min(linhas, key=lambda l: l["custo_hoje"])
     escolhida = next((l for l in linhas if l["escolhida"]), melhor)
     for l in linhas:
         l["melhor"] = l is melhor
 
     diferenca = round(escolhida["custo_hoje"] - melhor["custo_hoje"], 2)
-    if len(linhas) == 1:
+    if len(linhas) == 1 and int(compra["qtd_cotacoes"] or 1) > 1:
+        veredito = "incompleta"   # foram cotados vários, mas só a vencedora veio na planilha
+    elif len(linhas) == 1:
         veredito = "unica"
     elif diferenca <= 0:
         veredito = "certa"
