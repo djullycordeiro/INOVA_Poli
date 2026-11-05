@@ -88,10 +88,47 @@
   {% endif %}
   <div class="nota-rodape">Custo de hoje = (preço × quantidade + frete) trazido a valor presente com custo do dinheiro de 1% ao mês. A chegada é estimada a partir de hoje + prazo de entrega.</div>
 </section>
+
+{% if pode_editar and a.linhas %}
+<section class="cartao" id="registrar" aria-label="Registrar compra">
+  <h2 style="margin:0 0 6px;font-size:20px;font-weight:800">Registrar compra</h2>
+  <p style="margin:0 0 14px;color:#4F6153;font-size:15px">Escolha a proposta que venceu e informe o preço final, depois da negociação. A compra ganha a nota na hora.</p>
+  <form method="post" action="{{ url_for('registrar_compra', id=req.id) }}" style="display:flex;flex-direction:column;gap:16px">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="opcoes-vencedora">
+      {% for l in a.linhas %}{% set p = l.p %}
+      <label class="opcao-vencedora">
+        <input type="radio" name="vencedora" value="{{ p.id }}" data-preco="{{ '%.2f' % p.preco_unit }}" {{ 'checked' if l.melhor }}
+               onchange="document.getElementById('preco_final').value = this.dataset.preco.replace('.', ',')">
+        <span><strong>{{ p.fornecedor }}</strong> · {{ r.brl(p.preco_unit) }} · custo de hoje {{ r.brl(l.custo_hoje) }}
+          {% if l.melhor %}<span class="etiqueta etiqueta-melhor">recomendada</span>{% endif %}
+          {% if l.atraso %}<span class="atrasa">chega {{ l.atraso }} dia{{ 's' if l.atraso != 1 }} depois</span>{% endif %}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:end">
+      <label class="campo" style="flex:0 1 240px">Preço final negociado (por {{ r.por_extenso(item.unidade) if item else 'unidade' }})
+        <input id="preco_final" name="preco_final" inputmode="decimal" required value="{{ ('%.2f' % a.melhor.p.preco_unit).replace('.', ',') if a.melhor else '' }}"></label>
+      <div class="campo" style="flex:0 1 260px">Estava previsto no orçamento?
+        <div class="radio-urgencia">
+          <label><input type="radio" name="orcamento" value="sim" checked> Sim</label>
+          <label><input type="radio" name="orcamento" value="nao"> Não</label>
+        </div></div>
+      <button class="botao botao-amarelo">Registrar compra →</button>
+    </div>
+  </form>
+</section>
+{% endif %}
+{% endif %}
+
+{% if req.status == 'concluida' and req.id_compra %}
+<section class="veredito veredito-certa">
+  <div class="veredito-titulo">Requisição concluída: virou a compra {{ req.id_compra }}</div>
+  <a class="botao-escuro" href="{{ url_for('nota', sel=req.id_compra) }}">Ver a nota desta compra →</a>
+</section>
 {% endif %}
 
 <div class="rodape-tela entre">
   <a class="botao-voltar" href="{{ url_for('requisicoes') }}">← Requisições</a>
-  {% if a.linhas|length and pode_editar %}<span class="botao-proximo" style="opacity:.6" title="Chega no passo 4.4">Registrar compra (passo 4.4)</span>{% endif %}
 </div>
 {% endblock %}

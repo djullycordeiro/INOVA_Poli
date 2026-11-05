@@ -6,6 +6,7 @@ O banco é um arquivo só: justplan.db (ele NÃO vai pro GitHub, está no .gitig
 Comandos de terminal:
     python banco.py iniciar         -> cria as tabelas e importa os CSVs da pasta dados/
     python banco.py criar-gerente   -> cria a primeira conta de gerente (pede e-mail e senha)
+    python banco.py limpar-demo     -> apaga compras e requisições lançadas pelo site (volta ao pitch)
 """
 
 import csv
@@ -125,7 +126,12 @@ def _importar_csv(conexao, arquivo, tabela):
 # Colunas acrescentadas depois que a tabela já existia (passo 4.2).
 # Cada uma é criada só se ainda não existir, então nada do que já está no banco se perde.
 COLUNAS_NOVAS = {
+    "compras": {
+        "origem": "TEXT NOT NULL DEFAULT 'csv'",      # 'csv' = dados do pitch; 'site' = lançada pelo site
+        "requisicao_id": "INTEGER REFERENCES requisicoes(id)",
+    },
     "requisicoes": {
+        "id_compra": "TEXT REFERENCES compras(id_compra)",   # a compra que concluiu a requisição
         "quantidade": "REAL",
         "data_necessaria": "TEXT",                    # quando o material precisa chegar
         "urgencia": "TEXT NOT NULL DEFAULT 'Planejada'",
@@ -150,14 +156,33 @@ def garantir_tabelas():
 
 
 def iniciar():
-    """Cria as tabelas e (re)importa compras e cotações. Usuários e convites são preservados."""
+    """Cria as tabelas e (re)importa as compras e cotações dos CSVs.
+    Só apaga o que veio do CSV: usuários, convites, requisições e compras lançadas pelo site são preservados."""
+    garantir_tabelas()
     with conectar() as conexao:
-        conexao.executescript(ESTRUTURA)
-        conexao.execute("DELETE FROM cotacoes")
-        conexao.execute("DELETE FROM compras")
+        conexao.execute("DELETE FROM cotacoes WHERE id_compra IN (SELECT id_compra FROM compras WHERE origem = 'csv')")
+        conexao.execute("DELETE FROM compras WHERE origem = 'csv'")
         n_compras = _importar_csv(conexao, PASTA_DADOS / "natto_compras.csv", "compras")
         n_cot = _importar_csv(conexao, PASTA_DADOS / "natto_cotacoes.csv", "cotacoes")
     print(f"Banco pronto: {n_compras} compras e {n_cot} cotações importadas.")
+
+
+def limpar_demo(confirmar=True):
+    """Volta o banco ao estado do pitch: apaga compras lançadas pelo site, suas cotações,
+    as propostas e as requisições. Usuários e convites continuam."""
+    with conectar() as conexao:
+        n = conexao.execute("SELECT COUNT(*) FROM compras WHERE origem = 'site'").fetchone()[0]
+        r = conexao.execute("SELECT COUNT(*) FROM requisicoes").fetchone()[0]
+    if confirmar and input(f"Apagar {n} compra(s) do site e {r} requisição(ões)? Digite SIM: ").strip() != "SIM":
+        print("Nada foi apagado.")
+        return
+    with conectar() as conexao:
+        conexao.execute("UPDATE requisicoes SET id_compra = NULL")   # desfaz a ligação requisição <-> compra
+        conexao.execute("DELETE FROM cotacoes WHERE id_compra IN (SELECT id_compra FROM compras WHERE origem = 'site')")
+        conexao.execute("DELETE FROM compras WHERE origem = 'site'")
+        conexao.execute("DELETE FROM propostas")
+        conexao.execute("DELETE FROM requisicoes")
+    print(f"Pronto: {n} compra(s) e {r} requisição(ões) apagadas. Os dados do pitch voltaram ao original.")
 
 
 def areas():
@@ -190,5 +215,7 @@ if __name__ == "__main__":
         iniciar()
     elif comando == "criar-gerente":
         criar_gerente()
+    elif comando == "limpar-demo":
+        limpar_demo()
     else:
         print(__doc__)

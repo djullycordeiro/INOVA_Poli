@@ -208,8 +208,47 @@ def dica_para_proxima(compra, analise, qtd_cotacoes):
 # ---------------------------------------------------------------------------
 from datetime import date, timedelta
 
+# ---------------------------------------------------------------------------
+# Período móvel: os 12 meses que terminam no mês da compra mais recente.
+# definir_periodo() é chamada a cada página (no app.py) e atualiza as variáveis abaixo.
+# ---------------------------------------------------------------------------
+NOMES_MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
+NOMES_MES_EXTENSO = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
+                     "agosto", "setembro", "outubro", "novembro", "dezembro"]
+
+# Valores iniciais (o período dos dados do pitch); são recalculados por definir_periodo()
 INICIO_PERIODO, FIM_PERIODO = date(2025, 10, 1), date(2026, 9, 30)
 MESES = ["out", "nov", "dez", "jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set"]
+MESES_EXTENSO = ["outubro", "novembro", "dezembro", "janeiro", "fevereiro", "março",
+                 "abril", "maio", "junho", "julho", "agosto", "setembro"]
+DATA_DE_HOJE = date(2026, 10, 1)
+
+
+def definir_periodo(ultima_compra, tem_compra_do_site):
+    """ultima_compra: data (date) do pedido mais recente.
+    O período vai do 1º dia de 11 meses antes até o último dia do mês da última compra.
+    'Hoje' é a data real se já existe compra lançada pelo site; senão, o dia seguinte aos dados
+    (para a demonstração do pitch continuar fazendo sentido)."""
+    global INICIO_PERIODO, FIM_PERIODO, MESES, MESES_EXTENSO, DATA_DE_HOJE
+    ano, mes = ultima_compra.year, ultima_compra.month
+    ano_ini, mes_ini = (ano, mes - 11) if mes > 11 else (ano - 1, mes + 1)
+    INICIO_PERIODO = date(ano_ini, mes_ini, 1)
+    proximo = date(ano + (mes == 12), mes % 12 + 1, 1)
+    FIM_PERIODO = proximo - timedelta(days=1)
+    indices = [(mes_ini - 1 + i) % 12 for i in range(12)]
+    MESES = [NOMES_MES[i] for i in indices]
+    MESES_EXTENSO = [NOMES_MES_EXTENSO[i] for i in indices]
+    DATA_DE_HOJE = date.today() if tem_compra_do_site else ultima_compra + timedelta(days=1)
+
+
+def periodo_texto():
+    """'out/2025 a set/2026'"""
+    return f"{MESES[0]}/{INICIO_PERIODO.year} a {MESES[-1]}/{FIM_PERIODO.year}"
+
+
+def _mes_indice(iso):
+    """Posição do mês dentro do período: 0 = primeiro mês ... 11 = último."""
+    return (int(iso[:4]) - INICIO_PERIODO.year) * 12 + int(iso[5:7]) - INICIO_PERIODO.month
 
 
 def nome_curto(item):
@@ -268,8 +307,6 @@ def por_extenso(unidade):
 # ---------------------------------------------------------------------------
 # Savings
 # ---------------------------------------------------------------------------
-MESES_EXTENSO = ["outubro", "novembro", "dezembro", "janeiro", "fevereiro", "março",
-                 "abril", "maio", "junho", "julho", "agosto", "setembro"]
 CATEGORIA_NO_TEXTO = {  # como cada categoria aparece numa frase
     "Embalagens": "embalagens", "Peças de Manutenção": "peças de manutenção",
     "Frota e Logística": "frota", "EPIs e Uniformes": "EPIs",
@@ -310,13 +347,10 @@ def savings(compras):
     emerg = [c for c in compras if c["tipo_compra"] == "Emergencial"]
     perda = sum(c["pago_a_mais_vs_planejado"] or 0 for c in emerg)
 
-    # Mês a mês (índice 0 = out/2025 ... 11 = set/2026)
-    def mes(c):
-        a, m = int(c["data_pedido"][:4]), int(c["data_pedido"][5:7])
-        return (a - 2025) * 12 + m - 10
+    # Mês a mês (índice 0 = primeiro mês do período ... 11 = último)
     meses = [{"nome": MESES[i], "extenso": MESES_EXTENSO[i], "economia": 0.0, "perda": 0.0, "cats_perda": {}} for i in range(12)]
     for c in compras:
-        m = meses[mes(c)]
+        m = meses[_mes_indice(c["data_pedido"])]
         m["economia"] += c["saving_negociacao"] or 0
         if c["tipo_compra"] == "Emergencial":
             m["perda"] += c["pago_a_mais_vs_planejado"] or 0
@@ -369,15 +403,9 @@ def pct(valor, casas=1):
 # ---------------------------------------------------------------------------
 # Radar de Emergenciais
 # ---------------------------------------------------------------------------
-# "Hoje" do Radar: o dia seguinte ao fim dos dados. Troque aqui para simular outra data.
-DATA_DE_HOJE = date(2026, 10, 1)
+# "Hoje" do Radar = DATA_DE_HOJE, definida em definir_periodo() (lá em cima).
 VEZES_DIAS_ALERTA_AREA = 2          # área em alerta: taxa de emergenciais acima de 2× a mediana
 DIAS_JANELA_SAZONAL = 45            # emergências de um item todas dentro de 45 dias = sazonal
-
-
-def _mes_indice(iso):
-    """'2025-10-09' -> 0 ... '2026-09-30' -> 11"""
-    return (int(iso[:4]) - 2025) * 12 + int(iso[5:7]) - 10
 
 
 def _mediana(valores):
@@ -653,3 +681,54 @@ def comparar_propostas(propostas, quantidade, data_necessaria, hoje):
     return {"linhas": sorted(linhas, key=lambda l: l["custo_hoje"]), "melhor": melhor,
             "mais_barata_atrasa": bool(mais_barata and mais_barata is not melhor),
             "mais_barata": mais_barata, "faltam": max(COTACOES_RECOMENDADAS - len(linhas), 0)}
+
+
+# ---------------------------------------------------------------------------
+# Registrar compra: transforma requisição + propostas em uma compra com todos os campos
+# ---------------------------------------------------------------------------
+def montar_compra(id_compra, requisicao, item, propostas, vencedora_id, preco_final, no_orcamento,
+                  comprador, precos_planejados, hoje):
+    """Devolve (compra, cotacoes) prontas para gravar.
+    precos_planejados = preços finais das compras planejadas anteriores desse item (para o preço de referência)."""
+    qtd = requisicao["quantidade"]
+    venc = next(p for p in propostas if p["id"] == vencedora_id)
+    valor_itens = preco_final * qtd
+    custo_total = valor_itens + (venc["frete"] or 0)
+    ref = round(sum(precos_planejados) / len(precos_planejados), 2) if precos_planejados else preco_final
+    emergencial = requisicao["urgencia"] == "Emergencial"
+
+    compra = {
+        "id_compra": id_compra, "data_pedido": hoje.isoformat(),
+        "area_solicitante": requisicao["area"], "categoria": item["categoria"],
+        "codigo_item": item["codigo_item"], "item": item["item"], "unidade": item["unidade"],
+        "quantidade": qtd, "fornecedor": venc["fornecedor"], "comprador": comprador,
+        "qtd_cotacoes": len(propostas), "tipo_compra": requisicao["urgencia"],
+        "motivo_emergencia": (requisicao["justificativa"] or None) if emergencial else None,
+        "preco_unit_inicial": venc["preco_unit"], "preco_unit_final": preco_final,
+        "valor_itens": round(valor_itens, 2), "frete": venc["frete"] or 0, "custo_total": round(custo_total, 2),
+        "prazo_pagamento_dias": venc["prazo_pagamento_dias"],
+        "custo_total_hoje": round(custo_de_hoje(custo_total, venc["prazo_pagamento_dias"]), 2),
+        "saving_negociacao": round(max(venc["preco_unit"] - preco_final, 0) * qtd, 2),
+        "preco_medio_planejado_item": ref,
+        "pago_a_mais_vs_planejado": round(max(preco_final - ref, 0) * qtd, 2) if emergencial else 0,
+        "previsto_no_orcamento": "Sim" if no_orcamento else "Não",
+        "prazo_entrega_dias": venc["prazo_entrega_dias"],
+        "origem": "site", "requisicao_id": requisicao["id"],
+    }
+
+    # As propostas viram as cotações oficiais da compra (a vencedora com o preço negociado)
+    cotacoes = []
+    for p in propostas:
+        preco = preco_final if p["id"] == vencedora_id else p["preco_unit"]
+        total = preco * qtd + (p["frete"] or 0)
+        cotacoes.append({
+            "id_compra": id_compra, "fornecedor": p["fornecedor"], "preco_unit": preco, "quantidade": qtd,
+            "valor_itens": round(preco * qtd, 2), "frete": p["frete"] or 0, "custo_total": round(total, 2),
+            "prazo_pagamento_dias": p["prazo_pagamento_dias"],
+            "custo_total_hoje": round(custo_de_hoje(total, p["prazo_pagamento_dias"]), 2),
+            "prazo_entrega_dias": p["prazo_entrega_dias"], "vencedora": "Sim" if p["id"] == vencedora_id else "Não",
+        })
+    menor = min(c["custo_total_hoje"] for c in cotacoes)
+    for c in cotacoes:
+        c["melhor_custo_hoje"] = "Sim" if c["custo_total_hoje"] == menor else "Não"
+    return compra, cotacoes

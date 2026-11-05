@@ -376,3 +376,10 @@ form.escolha-item { justify-content: flex-start; max-width: 620px; }
 .form-proposta { grid-template-columns: minmax(0, 2fr) repeat(4, minmax(0, 1fr)) auto; }
 .campo input, .campo select { width: 100%; min-width: 0; }
 @media (max-width: 1100px) { .form-proposta { grid-template-columns: repeat(2, minmax(0, 1fr)); } .form-proposta .campo:first-child, .form-proposta .botao { grid-column: 1 / -1; } }
+
+/* ---------- 4.4 Registrar compra ---------- */
+.opcoes-vencedora { display: flex; flex-direction: column; gap: 8px; }
+.opcao-vencedora { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 2px solid #CFE0C4; border-radius: 12px; cursor: pointer; font-size: 15px; }
+.opcao-vencedora:has(input:checked) { border-color: var(--verde-botao); background: #F3F7EC; }
+.opcao-vencedora input { accent-color: var(--verde-botao); width: 18px; height: 18px; flex: none; }
+.opcao-vencedora .etiqueta, .opcao-vencedora .atrasa { margin-left: 6px; }

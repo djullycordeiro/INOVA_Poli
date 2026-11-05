@@ -34,13 +34,41 @@ TELAS = [
 ]
 
 
+@app.before_request
+def atualizar_periodo():
+    """Antes de cada página: descobre a compra mais recente e define o período móvel de 12 meses."""
+    with banco.conectar() as c:
+        ultima, do_site = c.execute(
+            "SELECT MAX(data_pedido), SUM(origem = 'site') FROM compras").fetchone()
+    if ultima:
+        regras.definir_periodo(date.fromisoformat(ultima[:10]), bool(do_site))
+
+
+def no_periodo():
+    """Pedaço de SQL que limita as compras ao período móvel."""
+    return "data_pedido BETWEEN ? AND ?", [regras.INICIO_PERIODO.isoformat(), regras.FIM_PERIODO.isoformat()]
+
+
+def filtro_compras(u):
+    """Compras que o usuário pode ver: a área dele (gerente vê todas) E dentro do período."""
+    onde_area, p_area = filtro_area(u)
+    onde_per, p_per = no_periodo()
+    return f"({onde_area}) AND {onde_per}", p_area + p_per
+
+
+def todas_no_periodo(c):
+    """A empresa inteira, dentro do período (para medianas e comparações)."""
+    onde, params = no_periodo()
+    return c.execute(f"SELECT * FROM compras WHERE {onde}", params).fetchall()
+
+
 def radar_do_usuario(u):
     """Calcula o Radar uma vez por página (fica guardado em g durante a requisição)."""
     if "radar" not in g:
-        onde, params = filtro_area(u)
+        onde, params = filtro_compras(u)
         with banco.conectar() as c:
             compras = c.execute(f"SELECT * FROM compras WHERE {onde}", params).fetchall()
-            todas = c.execute("SELECT * FROM compras").fetchall()
+            todas = todas_no_periodo(c)
         g.radar = regras.radar(compras, todas, u["area"] if u["perfil"] == "analista" else None)
     return g.radar
 
@@ -54,7 +82,8 @@ def variaveis_globais():
     if u and u["perfil"] == "gerente":
         with banco.conectar() as c:
             abertas = c.execute("SELECT COUNT(*) FROM requisicoes WHERE status = 'aberta'").fetchone()[0]
-    return {"usuario": u, "telas": TELAS, "csrf": session.get("csrf", ""), "n_alertas": alertas, "n_abertas": abertas}
+    return {"usuario": u, "telas": TELAS, "csrf": session.get("csrf", ""), "n_alertas": alertas, "n_abertas": abertas,
+            "periodo": regras.periodo_texto()}
 
 
 # ---------------------------------------------------------------------------
@@ -177,7 +206,7 @@ FILTROS_COTACAO = [
 @login_obrigatorio
 def cotacoes():
     u = usuario_atual()
-    onde, params = filtro_area(u)
+    onde, params = filtro_compras(u)
     filtro = request.args.get("filtro", "todos")
 
     with banco.conectar() as c:
@@ -228,13 +257,15 @@ FILTROS_NOTA = [("todas", "Todas"), ("r", "Vermelhas"), ("a", "Amarelas"), ("v",
 def compras_com_nota(usuario):
     """Busca as compras da área do usuário e calcula a nota de cada uma.
     Usado pela tela de Nota e, depois, pelo Radar."""
-    onde, params = filtro_area(usuario)
+    onde, params = filtro_compras(usuario)
     with banco.conectar() as c:
         compras = c.execute(f"SELECT * FROM compras WHERE {onde} ORDER BY data_pedido DESC", params).fetchall()
         propostas = c.execute(
             f"SELECT * FROM cotacoes WHERE id_compra IN (SELECT id_compra FROM compras WHERE {onde})", params).fetchall()
         # "Consumo previsível" olha a empresa toda, não só a área
-        vezes = dict(c.execute("SELECT codigo_item, COUNT(*) FROM compras GROUP BY codigo_item").fetchall())
+        p_onde, p_params = no_periodo()
+        vezes = dict(c.execute(f"SELECT codigo_item, COUNT(*) FROM compras WHERE {p_onde} GROUP BY codigo_item",
+                               p_params).fetchall())
     por_pedido = {}
     for p in propostas:
         por_pedido.setdefault(p["id_compra"], []).append(p)
@@ -276,7 +307,7 @@ def nota():
 @app.route("/historico")
 @login_obrigatorio
 def historico():
-    onde, params = filtro_area(usuario_atual())
+    onde, params = filtro_compras(usuario_atual())
     with banco.conectar() as c:
         compras = c.execute(f"SELECT * FROM compras WHERE {onde}", params).fetchall()
 
@@ -314,10 +345,10 @@ def historico():
 @app.route("/savings")
 @login_obrigatorio
 def savings():
-    onde, params = filtro_area(usuario_atual())
+    onde, params = filtro_compras(usuario_atual())
     with banco.conectar() as c:
         compras = c.execute(f"SELECT * FROM compras WHERE {onde}", params).fetchall()
-        todas = c.execute("SELECT * FROM compras").fetchall()
+        todas = todas_no_periodo(c)
     # O desconto por cotações usa a empresa toda: numa área só, a amostra é pequena demais
     return render_template("savings.html", s=regras.savings(compras),
                            por_cotacoes=regras.desconto_por_cotacoes(todas), r=regras)
@@ -545,9 +576,51 @@ def cotar_requisicao(id):
                            descontos=descontos, pode_editar=pode_editar, r=regras)
 
 
+@app.route("/requisicoes/<int:id>/registrar", methods=["POST"])
+@login_obrigatorio
+def registrar_compra(id):
+    """4.4 — Fecha a requisição: escolhe a proposta vencedora e cria a compra."""
+    u = usuario_atual()
+    req = requisicao_permitida(id, u)
+    if req["status"] != "aprovada" or not req["quantidade"]:
+        flash("Esta requisição não pode mais ser registrada.")
+        return redirect(url_for("cotar_requisicao", id=id))
+    with banco.conectar() as c:
+        propostas = c.execute("SELECT * FROM propostas WHERE requisicao_id = ?", (id,)).fetchall()
+        item = c.execute("SELECT codigo_item, item, unidade, categoria FROM compras WHERE codigo_item = ? LIMIT 1",
+                         (req["itens"],)).fetchone()
+        planejados = [l[0] for l in c.execute(
+            "SELECT preco_unit_final FROM compras WHERE codigo_item = ? AND tipo_compra = 'Planejada'", (req["itens"],))]
+        ultimo = c.execute("SELECT MAX(CAST(SUBSTR(id_compra, 4) AS INTEGER)) FROM compras").fetchone()[0] or 1000
+
+    vencedora = request.form.get("vencedora", type=int)
+    preco_final = _numero_do_form("preco_final")
+    venc = next((p for p in propostas if p["id"] == vencedora), None)
+    if venc is None:
+        flash("Escolha a proposta vencedora.")
+    elif not preco_final:
+        flash("Informe o preço final negociado.")
+    elif preco_final > venc["preco_unit"]:
+        flash("O preço final não pode ser maior que o da proposta. Se o fornecedor aumentou, lance uma nova proposta.")
+    else:
+        id_compra = f"PC-{ultimo + 1}"
+        compra, cotacoes = regras.montar_compra(
+            id_compra, req, item, propostas, vencedora, preco_final, request.form.get("orcamento") == "sim",
+            u["nome"], planejados, date.today())
+        with banco.conectar() as c:
+            c.execute(f"INSERT INTO compras ({', '.join(compra)}) VALUES ({', '.join('?' * len(compra))})",
+                      list(compra.values()))
+            for q in cotacoes:
+                c.execute(f"INSERT INTO cotacoes ({', '.join(q)}) VALUES ({', '.join('?' * len(q))})", list(q.values()))
+            c.execute("UPDATE requisicoes SET status = 'concluida', id_compra = ? WHERE id = ?", (id_compra, id))
+        flash(f"Compra {id_compra} registrada. Veja a nota dela abaixo.")
+        return redirect(url_for("nota", sel=id_compra))
+    return redirect(url_for("cotar_requisicao", id=id) + "#registrar")
+
+
 def banco_todas_compras():
     with banco.conectar() as c:
-        return c.execute("SELECT * FROM compras").fetchall()
+        return todas_no_periodo(c)
 
 
 # ---------------------------------------------------------------------------
